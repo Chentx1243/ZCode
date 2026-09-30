@@ -1,3 +1,4 @@
+import { buildRoleBindingEntry } from "../role-binding.js";
 import { randomUUID } from "node:crypto";
 import { resolveExecutionState, type ExecutionState } from "@zcode/shared";
 import { buildExecutionStateEntry, readRuntimeExecutionState } from "../execution-state.js";
@@ -752,6 +753,7 @@ async function commitAtomicConversationFork(
       ...clonedEntries.map((item) => item.entry),
       modelSelectionEntry,
       buildExecutionStateEntry(childSessionId, executionState),
+      buildRoleBindingEntry(childSessionId, runtime.getRoleBinding()),
     ],
     ...(goal ? { goal } : {}),
     ...(options.initialInput ? { initialInput: options.initialInput } : {}),
@@ -887,6 +889,9 @@ export async function createForkedSession(
 
   await runtime.sessionStore.saveSessionEntry?.(
     buildExecutionStateEntry(forkedSessionId, readRuntimeExecutionState(runtime)),
+  );
+  await runtime.sessionStore.saveSessionEntry?.(
+    buildRoleBindingEntry(forkedSessionId, runtime.getRoleBinding()),
   );
   return forkedSessionId;
 }

@@ -81,6 +81,7 @@ export class ContextBuilder {
    */
   build(): ContextBuildResult {
     const sections: ContextSection[] = [];
+    const role = this.config.roleBinding?.kind === "custom" ? this.config.roleBinding : undefined;
     const activeOutputStyle = this.config.outputStyle?.prompt.trim()
       ? this.config.outputStyle
       : undefined;
@@ -96,11 +97,14 @@ export class ContextBuilder {
       );
     }
     const isWorkflowActor = workflowActor !== undefined;
+    if (role && (hasCustomSystemPrompt || isWorkflowActor)) {
+      throw new Error("Role binding conflicts with custom system prompt or workflow actor");
+    }
 
     // 1. CLI / product prefix. Keep this as the short leading identity block.
     // 「You are ZCode, an interactive coding agent」对一个
     // 只对脚本说话、可能连读文件工具都没有的子代理是错的身份，且走在正确身份段前面。
-    if (!isWorkflowActor) {
+    if (!isWorkflowActor && !role) {
       sections.push(buildCliPrefixSection());
     }
 
@@ -118,7 +122,12 @@ export class ContextBuilder {
     } else if (workflowActor !== undefined) {
       sections.push(buildWorkflowActorIdentitySection(workflowActor));
     } else {
-      sections.push(buildIdentitySection(activeOutputStyle));
+      sections.push(
+        buildIdentitySection(
+          activeOutputStyle,
+          role ? `# Active role: ${role.name}\n${role.identityPrompt}` : undefined,
+        ),
+      );
     }
 
     // 3. Dynamic system context
@@ -134,7 +143,7 @@ export class ContextBuilder {
 
       // behaviour part right after stable sp...
       if (!isWorkflowActor) {
-        sections.push(buildDynamicBehaviorSection());
+        sections.push(buildDynamicBehaviorSection(role?.expressionStylePrompt));
       }
 
       // Session-specific guidance

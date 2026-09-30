@@ -1,5 +1,44 @@
 /** English translations */
 const enUS: Record<string, string> = {
+  "roles.personality": "Role personality",
+  "roles.identityPrompt": "Character identity",
+  "roles.expressionStylePrompt": "Expression style",
+  "roles.localCreated": "Locally created",
+  "roles.confirm": "Confirm",
+  "roles.officialReference": "Zcode official default role. Read-only, for reference only.",
+  "roles.personalityHint": "Confirm to return to role details, then save your changes.",
+  "roles.setDefault": "Set as default role",
+  "roles.officialName": "ZCode Official",
+  "roles.currentRole": "Current role",
+  "roles.selectRole": "Select role",
+  "roles.switchFailed": "Could not switch role. Please try again.",
+  "roles.busyCannotSwitch":
+    "Role switching is unavailable while this conversation is running or has queued input.",
+  "roles.draftRoleNotReady":
+    "The default role is preparing, or this runtime does not support roles yet. Please retry shortly.",
+  "roles.title": "Role Management",
+  "roles.subtitle":
+    "Choose the default role for new conversations, and switch roles from within a conversation",
+  "roles.search": "Search roles",
+  "roles.presets": "Role presets",
+  "roles.noResults": "No matching roles",
+  "roles.create": "Add role",
+  "roles.currentDefault": "Current default",
+  "roles.details": "Role Details",
+  "roles.name": "Role name",
+  "roles.author": "Author / source",
+  "roles.description": "Description",
+  "roles.officialReadOnly":
+    "ZCode Official is the built-in default role. Its information is read-only.",
+  "roles.editableHint": "Edit role information and personality, saved on this client.",
+  "roles.save": "Save",
+  "roles.cancel": "Cancel",
+  "roles.close": "Close",
+  "roles.requiredError": "Role name, character identity and expression style are required.",
+  "roles.saveError": "Could not save. Please retry. Your edits have been kept.",
+  "roles.loadError": "Could not restore local role information. Preset content is shown instead.",
+  "roles.unspecified": "Not specified",
+  "roles.noDescription": "No description yet",
   "startPlan.recommendation.subagentDescription":
     "Your Start Plan has quota available for {model}. Switch this subagent’s model to the Start Plan?",
   "startPlan.recommendation.preferenceSaveFailed":

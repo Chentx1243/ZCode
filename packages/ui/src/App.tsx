@@ -855,10 +855,15 @@ export function App({
     setOpenAutomationId(null);
     setOpenAutomationTab(null);
   }, []);
+  const handleNavigateToRoleManagementMain = useCallback(() => {
+    preserveNextSettingsExit();
+    setWorkspaceMainView("role-management");
+  }, [preserveNextSettingsExit]);
   const {
     handleSelectTask,
     handleOpenAutomations,
     handleOpenPluginStore,
+    handleOpenRoleManagement,
     handleTaskNavBack,
     handleTaskNavForward,
     canGoBack,
@@ -873,6 +878,7 @@ export function App({
     onNavigateToTask: handleNavigateToTaskMain,
     onNavigateToAutomations: handleNavigateToAutomationsMain,
     onNavigateToPluginStore: handleNavigateToPluginStoreMain,
+    onNavigateToRoleManagement: handleNavigateToRoleManagementMain,
   });
   const handleOpenPluginStoreForScope = useCallback(
     (_target: PluginStoreOpenTarget = {}) => {
@@ -1133,6 +1139,7 @@ export function App({
         onOpenAutomationConsumed={handleOpenAutomationConsumed}
         handleOpenAutomations={handleOpenAutomations}
         handleOpenPluginStore={handleOpenPluginStoreForScope}
+        handleOpenRoleManagement={handleOpenRoleManagement}
         handleManageInstalledPlugins={handleManageInstalledPlugins}
         onConnectRemote={onConnectRemote}
         onSelectRemoteProject={onSelectRemoteProject}

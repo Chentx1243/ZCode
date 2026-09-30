@@ -1,3 +1,4 @@
+import { roleBindingSchema } from "../role-binding.js";
 import { localTtftContextSchema, localTtftClockSchema } from "../localTtft.js";
 // Command 层：信封 / ACK / 命令全集 payload。
 // conversation rewind 无独立命令（裁决：= editUserQuery 的 UI 入口）；
@@ -28,6 +29,7 @@ import { sharedContextRefSchema } from "./shared-context-ref.js";
 export type { SharedContextRef } from "./shared-context-ref.js";
 
 const createSessionRequestedConfigSchema = z.object({
+  roleBinding: roleBindingSchema.optional(),
   modelSelection: modelSelectionSchema.optional(),
   provider: z.string().optional(),
   model: z.string().optional(),
@@ -215,6 +217,7 @@ export const commandPayloadSchemas = {
   switchCollaborationMode: z.object({
     mode: z.enum(["build", "edit", "plan", "yolo"]),
   }),
+  switchRoleBinding: z.object({ roleBinding: roleBindingSchema }),
   setFollowupMode: z.object({ mode: z.enum(["queue", "guide"]) }),
   pauseGoal: z.object({}),
   resumeGoal: z.object({}),
@@ -306,6 +309,7 @@ export const COMMANDS_REQUIRING_BASE_REVISION: ReadonlySet<CommandType> = new Se
   "setAutoDrain",
   "switchModelConfig",
   "switchCollaborationMode",
+  "switchRoleBinding",
   "setFollowupMode",
   "pauseGoal",
   "resumeGoal",

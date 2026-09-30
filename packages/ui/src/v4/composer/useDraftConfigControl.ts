@@ -1,3 +1,4 @@
+import { readDefaultRoleBinding } from "@/hooks/useRolePresets.js";
 import { applyComposerPermissionGrant } from "@/v4/composer/composerPermissionGrant.js";
 /* eslint-disable max-lines -- Composer 草稿 owner 同时收口选择、正文与提交生命周期，保持单一状态边界。 */
 // Composer 的模式/模型选择与正文使用同一 scope 草稿；Session 只提供一次初始化种子。
@@ -96,6 +97,7 @@ interface DraftConfigControl {
   ) => () => void;
   handleDraftSelectModel: (modelProvider: string, model: string) => void;
   handleDraftSelectThought: (thought: string) => void;
+  handleDraftSelectRole: (roleBinding: NonNullable<SessionConfigState["roleBinding"]>) => void;
   handleDraftSwitchMode: (mode: string) => void;
 }
 
@@ -187,8 +189,16 @@ export function useDraftConfigControl(params: {
       provider: effectiveSelection?.providerId ?? "",
       model: effectiveSelection?.modelId ?? "",
       thought: effectiveSelection?.options?.reasoningLevel ?? "",
+      roleBinding: draft.roleBinding ?? (sessionId ? sessionConfig?.roleBinding : undefined),
     }),
-    [draft.mode, draft.planEnabled, effectiveSelection],
+    [
+      draft.mode,
+      draft.planEnabled,
+      draft.roleBinding,
+      effectiveSelection,
+      sessionConfig?.roleBinding,
+      sessionId,
+    ],
   );
   const draftConfigRef = useRef(draftConfig);
   draftConfigRef.current = draftConfig;
@@ -223,6 +233,7 @@ export function useDraftConfigControl(params: {
         provider: selection?.providerId ?? "",
         model: selection?.modelId ?? "",
         thought: selection?.options?.reasoningLevel ?? "",
+        roleBinding: next.roleBinding ?? draftConfigRef.current.roleBinding,
       };
       setStoredState(nextState);
       persistV4ComposerDraft(workspacePath, workspaceIdentity, scopeId, next);
@@ -238,6 +249,7 @@ export function useDraftConfigControl(params: {
         ...current,
         mode: mode.success ? mode.data : current.mode,
         modelSelection: next.modelSelection,
+        roleBinding: next.roleBinding,
         // 用户已经显式改选，不能再由导入时等待的默认初始化覆盖。
         ...(current.initializeFromNewTask
           ? { mode: mode.success ? mode.data : "build", initializeFromNewTask: undefined }
@@ -270,8 +282,10 @@ export function useDraftConfigControl(params: {
     [scopeKey, updateComposerDraft],
   );
   const resolveInitialDraftConfig = useCallback((): Partial<SessionConfigState> | undefined => {
-    if (!draftConfigRef.current.mode) return undefined;
-    const config = { ...draftConfigRef.current };
+    // 模式尚未就绪时也必须绑定角色，避免预热会话先按官方身份创建。
+    const roleBinding = draftConfigRef.current.roleBinding ?? readDefaultRoleBinding();
+    if (!draftConfigRef.current.mode) return { roleBinding };
+    const config = { ...draftConfigRef.current, roleBinding };
     if (appFollowupMode) {
       config.followupMode = appFollowupMode;
     }
@@ -457,6 +471,13 @@ export function useDraftConfigControl(params: {
     [updateDraftConfig],
   );
 
+  const handleDraftSelectRole = useCallback(
+    (roleBinding: NonNullable<SessionConfigState["roleBinding"]>) => {
+      updateDraftConfig((current) => ({ ...current, roleBinding }));
+    },
+    [updateDraftConfig],
+  );
+
   const handleDraftSwitchMode = useCallback(
     (mode: string) => {
       if (mode === "plan" || mode === "plan-off") {
@@ -492,16 +513,20 @@ export function useDraftConfigControl(params: {
     captureAcceptedModelSelection,
     handleDraftSelectModel,
     handleDraftSelectThought,
+    handleDraftSelectRole,
     handleDraftSwitchMode,
   };
 }
 
-/** createSession payload 的草稿 config 片段（无选择时返回空对象，不携带 config 键）。 */
+/** createSession payload 的草稿 config 片段，沿用本草稿角色或回退到全局默认。 */
 export function buildDraftCreateConfigPayload(
   draftConfig: Partial<SessionConfigState>,
   appFollowupMode?: SessionConfigState["followupMode"] | null,
 ): { config?: Partial<SessionConfigState> } {
-  const config: Partial<SessionConfigState> = { ...draftConfig };
+  const config: Partial<SessionConfigState> = {
+    ...draftConfig,
+    roleBinding: draftConfig.roleBinding ?? readDefaultRoleBinding(),
+  };
   if (appFollowupMode) {
     config.followupMode = appFollowupMode;
   }

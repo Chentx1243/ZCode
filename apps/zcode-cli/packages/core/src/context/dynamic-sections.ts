@@ -1,6 +1,9 @@
 import type { ContextBuilderConfig, ContextSection } from "./types.js";
 import { estimateTokens } from "./utils.js";
 
+const FINAL_MESSAGE_CONTRACT =
+  "Text you write between tool calls may not be shown to the user. Everything the user needs from this turn \u2014 answers, summaries, findings, conclusions, deliverables \u2014 must be in the final text message of your turn, with no tool calls after it. Keep text between tool calls to brief status notes. If something important appeared only mid-turn or in your thinking, restate it in that final message.";
+
 const COMMUNICATION_PROMPTS = {
   default:
     "Write code that reads like the surrounding code: match its comment density, naming, and idiom.",
@@ -10,7 +13,7 @@ const COMMUNICATION_PROMPTS = {
       "",
       "Your text output is what the user reads; they usually can't see your thinking or the raw tool results. Write it for a teammate who stepped away and is catching up, not for a log file: they don't know the codenames or shorthand you created along the way, and they didn't watch your process unfold. Before your first tool call, say in a sentence what you're about to do; while working, give brief updates when you find something load-bearing or change direction.",
       "",
-      "Text you write between tool calls may not be shown to the user. Everything the user needs from this turn \u2014 answers, summaries, findings, conclusions, deliverables \u2014 must be in the final text message of your turn, with no tool calls after it. Keep text between tool calls to brief status notes. If something important appeared only mid-turn or in your thinking, restate it in that final message.",
+      FINAL_MESSAGE_CONTRACT,
       "",
       'Lead with the outcome. Your first sentence after finishing should answer "what happened" or "what did you find" \u2014 the thing the user would ask for if they said "just give me the TLDR." Supporting detail and reasoning come after, for readers who want them.',
       "",
@@ -41,7 +44,10 @@ const CONTEXT_MANAGEMENT_PROMPTS = {
   ].join("\n"),
 } as const;
 
-export function buildSessionGuidanceSection(toolNames: readonly string[], hasSkills = false): ContextSection | null {
+export function buildSessionGuidanceSection(
+  toolNames: readonly string[],
+  hasSkills = false,
+): ContextSection | null {
   const tools = new Set(toolNames);
   const lines = ["# Session-specific guidance"];
 
@@ -58,7 +64,9 @@ export function buildSessionGuidanceSection(toolNames: readonly string[], hasSki
   // }
 
   if (tools.has("Skill") && hasSkills) {
-    lines.push("- When the user types `/<skill-name>`, invoke it via Skill. Only use skills listed in the user-invocable skills section \u2014 don't guess.");
+    lines.push(
+      "- When the user types `/<skill-name>`, invoke it via Skill. Only use skills listed in the user-invocable skills section \u2014 don't guess.",
+    );
   }
 
   // if (tools.has("AskUserQuestion")) {
@@ -73,12 +81,21 @@ export function buildSessionGuidanceSection(toolNames: readonly string[], hasSki
   return createDynamicSection("Session-specific guidance", "session_guidance", lines.join("\n"));
 }
 
-export function buildDynamicBehaviorSection(): ContextSection {
+export function buildDynamicBehaviorSection(roleExpressionStyle?: string): ContextSection {
   return createDynamicSection(
     "Dynamic Behavior",
     "dynamic_behavior",
     [
-      COMMUNICATION_PROMPTS.additional.beforeDefault,
+      roleExpressionStyle === undefined
+        ? COMMUNICATION_PROMPTS.additional.beforeDefault
+        : [
+            "# Communicating with the user",
+            "Before your first tool call, say in a sentence what you're about to do; while working, give brief updates when you find something load-bearing or change direction.",
+            // 人格改变表达，不改变完整交付要求；此段逐字保留默认的最终消息约定。
+            FINAL_MESSAGE_CONTRACT,
+            "# Role expression style",
+            roleExpressionStyle,
+          ].join("\n\n"),
       "",
       COMMUNICATION_PROMPTS.default,
       COMMUNICATION_PROMPTS.additional.afterDefault,

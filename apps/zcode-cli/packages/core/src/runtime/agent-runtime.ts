@@ -1,3 +1,4 @@
+import type { RoleBinding } from "@zcode/shared";
 import { DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY, resolveExecutionState } from "@zcode/shared";
 import type { BackgroundBashOutputResult } from "@zcode/shared";
 import {
@@ -338,6 +339,9 @@ export interface AgentRuntime {
   lastPermissionGrantId?: string;
   beginShutdown(): void;
   closeBrowserSession(): Promise<void>;
+  bindInitialRole(binding: RoleBinding): void;
+  getRoleBinding(): RoleBinding;
+  switchRoleBinding(binding: RoleBinding, traceContext: TraceContext): Promise<void>;
   updateConfig(
     patch: Pick<AgentRuntimeConfig, "mode" | "planEnabled" | "language" | "outputStyle">,
   ): void;

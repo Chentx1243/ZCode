@@ -4,6 +4,7 @@
 // 每个命令组一个文件：handler 纯函数 (host, envelope) → CommandResult|undefined，
 // 决策逻辑直驱 core（app.setModel / app.setMode / runtime.emit*），不经旧协议 op。
 import type { CollaborationMode, ModelSelection } from "@zcode/contracts";
+import type { RoleBinding } from "@zcode/shared";
 import type {
   CommandEnvelope,
   CommandPayloadMap,
@@ -165,6 +166,26 @@ async function switchCollaborationMode(
   return undefined;
 }
 
+async function switchRoleBinding(
+  host: V4CommandCoreHost,
+  envelope: CommandEnvelope,
+): Promise<CommandResult | undefined> {
+  const payload = envelope.payload as CommandPayloadMap["switchRoleBinding"];
+  const record = requireRecord(host, envelope.sessionId);
+  return runSessionModelConfigMutation(record.app, async () => {
+    const current = record.app.runtime.getRoleBinding();
+    if (JSON.stringify(current) === JSON.stringify(payload.roleBinding)) {
+      throw new V4CommandNoopError(CONFIG_UNCHANGED);
+    }
+    // Runtime 再做一次忙碌守卫，覆盖 UI 发送后新一轮输入已准入的竞态。
+    await record.app.runtime.switchRoleBinding(
+      payload.roleBinding as RoleBinding,
+      record.traceContext,
+    );
+    return undefined;
+  });
+}
+
 /**
  * createSession.config 消费共用件（「createSession.config 必须被消费」）：
  * 以「请求 config 覆盖 runtime 缺省」归并，只对与 runtime 当前值不同的部分生效，
@@ -264,4 +285,8 @@ export async function applyRequestedSessionConfig(
   }
 }
 
-export const modelConfigHandlers = { switchModelConfig, switchCollaborationMode };
+export const modelConfigHandlers = {
+  switchModelConfig,
+  switchCollaborationMode,
+  switchRoleBinding,
+};

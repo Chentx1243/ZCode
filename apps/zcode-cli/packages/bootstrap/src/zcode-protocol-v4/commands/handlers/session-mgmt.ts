@@ -59,6 +59,7 @@ async function createSession(
   // 会话保持 runtime 缺省。
   if (payload.config) {
     const record = requireRecord(host, sessionId);
+    if (payload.config.roleBinding) record.app.runtime.bindInitialRole(payload.config.roleBinding);
     try {
       await applyRequestedSessionConfig(host, record, payload.config);
     } catch (error) {

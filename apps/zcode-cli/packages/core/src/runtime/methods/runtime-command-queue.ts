@@ -100,6 +100,7 @@ function runtimeCommandInputId(command: RuntimeCommand): string | undefined {
 export function hasActiveOrQueuedTurnWork(this: AgentRuntimeInternal): boolean {
   return (
     this.foregroundPromotionLease !== undefined ||
+    this.roleBindingMutationInProgress === true ||
     this.activeForegroundExecution !== undefined ||
     this.runtimeCommandDrainActive ||
     this.runtimeCommandQueue.hasPending() ||

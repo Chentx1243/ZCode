@@ -116,6 +116,8 @@ export interface AgentRuntimeInternal
   sessionStore?: SessionStorePort;
   sessionMailboxPort?: SessionMailboxPort;
   sessionPersisted: boolean;
+  /** 在保存并发布角色配置期间拒绝并发首发，避免新输入跨越身份边界。 */
+  roleBindingMutationInProgress?: boolean;
   needsPlanModeExitReminder: boolean;
   latestConversationMessageId?: MessageId;
   latestAssistantMessageId?: MessageId;

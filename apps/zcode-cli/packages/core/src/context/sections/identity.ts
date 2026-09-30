@@ -29,18 +29,23 @@ export function buildHarnessBlock(): string {
   ].join("\n");
 }
 
-function buildIdentityPrompt(outputStyle?: OutputStylePromptConfig): string {
-  const intro = outputStyle
-    ? "You respond to the user according to the active Output Style below while using ZCode's tools and instructions."
-    : "You are an interactive ZCode agent that helps users with software engineering tasks.";
+function buildIdentityPrompt(outputStyle?: OutputStylePromptConfig, roleIdentity?: string): string {
+  const intro =
+    roleIdentity ??
+    (outputStyle
+      ? "You respond to the user according to the active Output Style below while using ZCode's tools and instructions."
+      : "You are an interactive ZCode agent that helps users with software engineering tasks.");
 
   const identityLines = ["", intro, "", SECURITY_NOTICE].join("\n");
 
   return [identityLines, "", buildHarnessBlock()].join("\n");
 }
 
-export function buildIdentitySection(outputStyle?: OutputStylePromptConfig): ContextSection {
-  const content = buildIdentityPrompt(outputStyle);
+export function buildIdentitySection(
+  outputStyle?: OutputStylePromptConfig,
+  roleIdentity?: string,
+): ContextSection {
+  const content = buildIdentityPrompt(outputStyle, roleIdentity);
 
   return {
     name: "Agent Identity",

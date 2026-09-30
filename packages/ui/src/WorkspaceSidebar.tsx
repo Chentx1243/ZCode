@@ -27,6 +27,7 @@ import {
   Minimize2,
   Plus,
   Search,
+  UsersRound,
   X,
 } from "lucide-react";
 import {
@@ -259,8 +260,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onOpenCommandCenter,
   onOpenAutomations,
   onOpenPluginStore,
+  onOpenRoleManagement,
   automationsActive = false,
   pluginStoreActive = false,
+  roleManagementActive = false,
   onFileTreeOpenChange,
 }: {
   workspacePath: string;
@@ -311,8 +314,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
   onOpenCommandCenter: () => void;
   onOpenAutomations?: () => void;
   onOpenPluginStore?: () => void;
+  onOpenRoleManagement?: () => void;
   automationsActive?: boolean;
   pluginStoreActive?: boolean;
+  roleManagementActive?: boolean;
   onFileTreeOpenChange?: (open: boolean) => void;
 }) {
   const { intl, localePreference, setLocalePreference } = useZCodeIntl();
@@ -1345,6 +1350,21 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
             >
               <Blocks className="size-4" />
               {intl.formatMessage({ id: "workspace.openPluginsSettings" })}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={onOpenRoleManagement}
+              data-icon="inline-start"
+              data-testid="role-management-sidebar-open"
+              size="lg"
+              aria-pressed={roleManagementActive}
+              className={cn(
+                "w-full justify-start gap-2 text-foreground hover:bg-surface-hover hover:text-foreground",
+                roleManagementActive && "bg-selected text-foreground",
+              )}
+            >
+              <UsersRound className="size-4" aria-hidden="true" />
+              {intl.formatMessage({ id: "roles.title" })}
             </Button>
           </div>
 

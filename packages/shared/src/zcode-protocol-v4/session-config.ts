@@ -1,8 +1,10 @@
+import { roleBindingSchema } from "../role-binding.js";
 import { z } from "zod";
 import { modelSelectionSchema } from "../model-selection.js";
 
 // ── config──
 export const sessionConfigStateSchema = z.object({
+  roleBinding: roleBindingSchema.optional(),
   /** Session 接受并持久化的稀疏选择意图；provider/model/thought 仅为 UI effective 投影。 */
   modelSelection: modelSelectionSchema.optional(),
   provider: z.string(),

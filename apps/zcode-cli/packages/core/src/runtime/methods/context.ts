@@ -133,6 +133,7 @@ export function createContextBuilderFromSnapshot(
     agentProfiles: this.config.subagents?.profiles,
     embeddedSearchEnabled: resolveRuntimeEmbeddedSearchEnabled(this),
     skillMetadataBudget: this.config.skillMetadataBudget,
+    roleBinding: this.config.roleBinding,
     customSystemPrompt: this.config.systemPrompt,
     workflowActor: this.config.workflowActor,
     language: this.config.language,
