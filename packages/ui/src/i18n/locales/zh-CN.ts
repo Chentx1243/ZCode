@@ -1,5 +1,61 @@
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  "roles.advanced": "高级配置",
+  "roles.defaultChineseReference": "默认提示词中文参考",
+  "roles.advancedHint": "面向专业用户，调整 Agent 的工作规则，通常无需修改。",
+  "roles.advancedCount": "已自定义 {count} 项",
+  "roles.unlock": "解锁编辑",
+  "roles.restoreDefault": "恢复默认",
+  "roles.unlockTitle": "解锁提示词编辑",
+  "roles.unlockWarning": "修改该提示词可能影响 ZCode 的工作效果，请谨慎修改。",
+  "roles.confirmUnlock": "确认解锁",
+  "roles.advancedRequired": "提示词不能为空。请填写内容或恢复默认。",
+  "roles.advanced.codeStyle.title": "代码编写规范",
+  "roles.advanced.codeStyle.description": "规定代码命名、惯用写法与现有项目风格的一致性。",
+  "roles.advanced.codeComments.title": "代码注释规范",
+  "roles.advanced.codeComments.description": "规定何时添加注释以及注释应包含哪些内容。",
+  "roles.advanced.progress.title": "工具调用前说明与进展更新",
+  "roles.advanced.progress.description": "规定执行工具前的说明和工作过程中的进展反馈。",
+  "roles.advanced.progress.risk": "修改可能减少执行说明和进展反馈，使用户难以了解任务状态。",
+  "roles.advanced.finalReply.title": "最终回复与完整交付约定",
+  "roles.advanced.finalReply.description": "确保答案、结论和交付物完整出现在最终回复中。",
+  "roles.advanced.finalReply.risk":
+    "修改可能使重要结果只出现在中间消息中，导致最终回复缺失交付内容。",
+  "roles.advanced.authorization.title": "操作授权与结果如实报告",
+  "roles.advanced.authorization.description":
+    "指导不可逆及对外操作前的确认，以及测试、执行结果的报告。",
+  "roles.advanced.authorization.risk":
+    "修改可能影响操作前确认和结果报告。实际工具权限仍由系统控制。",
+  "roles.advanced.security.title": "安全使用说明",
+  "roles.advanced.security.description": "限定安全测试与双用途安全工具的使用语境。",
+  "roles.advanced.security.risk":
+    "修改可能影响模型对安全测试及授权语境的判断，不会改变供应商限制或实际工具权限。",
+  "roles.advanced.harness.title": "工具运行约定（Harness）",
+  "roles.advanced.harness.description": "说明展示形式、权限拒绝、系统提醒、工具选择及代码引用。",
+  "roles.advanced.harness.risk": "修改可能导致权限拒绝处理、工具选择或系统消息理解异常。",
+  "roles.advanced.contextManagement.title": "长上下文管理与自主执行规则",
+  "roles.advanced.contextManagement.description":
+    "指导摘要后继续工作、主动执行、任务完成和必要确认。",
+  "roles.advanced.contextManagement.risk":
+    "修改可能导致长对话丢失连续性、提前结束任务或不恰当的自主操作。",
+  "roles.advanced.desktop.title": "桌面链接与行内代码评论格式",
+  "roles.advanced.desktop.description":
+    "定义本地链接、文件引用和行内代码评论的输出格式，仅在桌面展示环境注入。",
+  "roles.advanced.desktop.risk": "修改可能使文件链接不可点击，或行内代码评论无法正确显示。",
+  "roles.advanced.skillGuidance.title": "技能调用指导",
+  "roles.advanced.skillGuidance.description":
+    "指导用户指定技能时的调用方式，仅在技能和工具实际可用时注入。",
+  "roles.advanced.skillGuidance.risk":
+    "修改可能导致遗漏技能调用或尝试不存在的技能，不会增加实际技能能力。",
+  "roles.advanced.memory.title": "记忆读取、记录与维护规则",
+  "roles.advanced.memory.description":
+    "定义记忆文件格式、索引及维护方式，实际记忆路径由运行时提供。",
+  "roles.advanced.memory.risk": "修改可能造成记忆格式或索引不一致，影响后续记忆恢复和使用。",
+  "roles.advanced.projectInstructions.title": "项目及用户指令遵循规则",
+  "roles.advanced.projectInstructions.description":
+    "定义对项目与用户指令的遵循要求，不修改 AGENTS.md 等原文件正文。",
+  "roles.advanced.projectInstructions.risk":
+    "修改可能导致模型忽略项目规范或用户指令，影响既有工作流程。",
   "roles.personality": "角色性格管理",
   "roles.identityPrompt": "人物身份",
   "roles.expressionStylePrompt": "表达风格",

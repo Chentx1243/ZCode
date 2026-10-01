@@ -1,3 +1,4 @@
+import { rolePresetToBinding } from "@/lib/rolePresets.js";
 import { useRolePresets } from "@/hooks/useRolePresets.js";
 import { resolveSelectionSideInheritedModel } from "@/lib/selectionSideInheritedModel.js";
 import { useStartPlanRecommendation } from "@/hooks/useStartPlanRecommendation.js";
@@ -2288,15 +2289,7 @@ export function SessionPane({
       rolePresets.map((role) => ({
         id: role.id,
         name: role.name,
-        binding: role.builtin
-          ? ({ kind: "official" } satisfies RoleBinding)
-          : ({
-              kind: "custom",
-              roleId: role.id,
-              name: role.name,
-              identityPrompt: role.identityPrompt,
-              expressionStylePrompt: role.expressionStylePrompt,
-            } satisfies RoleBinding),
+        binding: rolePresetToBinding(role),
       })),
     [rolePresets],
   );

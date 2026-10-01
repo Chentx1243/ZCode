@@ -307,4 +307,13 @@ export * from "./pluginStoreOrdering.js";
 export * from "./session-debug.js";
 export { redactFeedbackText } from "./feedbackPrivacy.js";
 
-export { roleBindingSchema, type RoleBinding } from "./role-binding.js";
+export { roleBindingSchema, freezeRoleBinding, type RoleBinding } from "./role-binding.js";
+export {
+  ROLE_PROMPT_SECTIONS,
+  ROLE_PROMPT_SECTION_IDS,
+  rolePromptOverridesSchema,
+  resolveRolePrompt,
+  normalizeRolePromptOverrides,
+  type RolePromptSectionId,
+  type RolePromptOverrides,
+} from "./role-prompt-sections.js";

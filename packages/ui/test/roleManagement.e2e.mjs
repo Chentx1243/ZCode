@@ -17,9 +17,21 @@ test(
     const backup = await page.evaluate(() => ({
       v1: localStorage.getItem("zcode-role-presets-v1"),
       v2: localStorage.getItem("zcode-role-presets-v2"),
+      v3: localStorage.getItem("zcode-role-presets-v3"),
+      locale: localStorage.getItem("zcode-locale-preference"),
     }));
     const originalViewport = page.viewportSize();
     const openRoles = async () => {
+      // 空 Provider 的隔离客户端重载后会打开登录页，走公开跳过入口，不注入凭据。
+      const entry = page.getByRole("button", { name: /^(使用 API key|Use API key)$/ });
+      await Promise.race([
+        entry.waitFor(),
+        page.getByTestId("role-management-sidebar-open").waitFor(),
+      ]);
+      if (await entry.isVisible()) {
+        await entry.click();
+        await page.getByRole("button", { name: /^(暂时跳过|Skip for now)$/ }).click();
+      }
       await page.getByTestId("role-management-sidebar-open").click();
       await page.getByTestId("role-create").waitFor();
     };
@@ -28,9 +40,14 @@ test(
       await page.evaluate(() => {
         localStorage.removeItem("zcode-role-presets-v1");
         localStorage.removeItem("zcode-role-presets-v2");
+        localStorage.removeItem("zcode-role-presets-v3");
       });
       await page.reload();
       await openRoles();
+      assert.equal(await page.locator("[data-role-id]").count(), 2);
+      assert.equal(await card("general-assistant").count(), 0);
+      assert.equal(await card("writing-partner").count(), 0);
+      assert.match(await card("04a923fa-2db3-4a85-b456-8ffa17ef86a1").innerText(), /DexCode/);
       await card("zcode-official").focus();
       await page.keyboard.press("Enter");
       await page.getByTestId("role-personality-open").click();
@@ -40,6 +57,48 @@ test(
         assert.equal(await page.getByTestId(`role-field-${field}`).getAttribute("readonly"), "");
       const officialIdentity = await page.getByTestId("role-field-identityPrompt").inputValue();
       const officialStyle = await page.getByTestId("role-field-expressionStylePrompt").inputValue();
+      assert.equal(
+        await page.getByTestId("role-advanced-toggle").getAttribute("aria-expanded"),
+        "false",
+      );
+      await page.getByTestId("role-advanced-toggle").click();
+      const advancedKeys = [
+        "codeStyle",
+        "codeComments",
+        "progress",
+        "finalReply",
+        "authorization",
+        "security",
+        "harness",
+        "contextManagement",
+        "desktop",
+        "skillGuidance",
+        "memory",
+        "projectInstructions",
+      ];
+      for (const key of advancedKeys) {
+        assert.equal(await page.getByTestId("role-advanced-" + key).getAttribute("readonly"), "");
+        assert.ok((await page.getByTestId("role-advanced-" + key).inputValue()).length > 0);
+        await page.getByTestId("role-reference-" + key).hover();
+        const reference = page.getByTestId("role-reference-content-" + key);
+        await reference.waitFor();
+        assert.match(await reference.innerText(), /默认提示词中文参考/);
+        assert.ok((await reference.locator('[lang="zh-CN"]').first().innerText()).length > 20);
+        await page.keyboard.press("Escape");
+        await page.getByTestId(`role-advanced-${key}`).focus();
+        await reference.waitFor({ state: "hidden" });
+      }
+      assert.equal(await page.locator('[data-testid^="role-unlock-"]').count(), 0);
+      assert.equal(await page.locator('[data-testid^="role-reset-"]').count(), 0);
+      const officialCodeStyle = await page.getByTestId("role-advanced-codeStyle").inputValue();
+      await page.getByTestId("role-advanced-codeStyle").focus();
+      await page.keyboard.press("Control+A");
+      assert.equal(
+        await page
+          .getByTestId("role-advanced-codeStyle")
+          .evaluate((el) => el.selectionEnd - el.selectionStart),
+        officialCodeStyle.length,
+      );
       await page.keyboard.press("Escape");
       await personality.waitFor({ state: "hidden" });
       assert.equal(await page.getByTestId("role-detail-dialog").count(), 1);
@@ -50,14 +109,24 @@ test(
         true,
       );
       await page.keyboard.press("Escape");
-      await card("writing-partner").click();
+      await card("04a923fa-2db3-4a85-b456-8ffa17ef86a1").click();
       await page.getByTestId("role-set-default").click();
-      assert.equal(await card("writing-partner").getByTestId("role-default-badge").count(), 1);
+      assert.equal(
+        await card("04a923fa-2db3-4a85-b456-8ffa17ef86a1")
+          .getByTestId("role-default-badge")
+          .count(),
+        1,
+      );
       await page.getByTestId("task-new-button").click();
-      assert.match(await page.getByTestId("current-role").innerText(), /写作伙伴/);
+      assert.match(await page.getByTestId("current-role").innerText(), /DexCode/);
       await page.reload();
       await openRoles();
-      assert.equal(await card("writing-partner").getByTestId("role-default-badge").count(), 1);
+      assert.equal(
+        await card("04a923fa-2db3-4a85-b456-8ffa17ef86a1")
+          .getByTestId("role-default-badge")
+          .count(),
+        1,
+      );
       await card("zcode-official").click();
       await page.getByTestId("role-set-default").click();
       await page.getByTestId("task-new-button").click();
@@ -80,7 +149,7 @@ test(
       await page.getByTestId("role-field-expressionStylePrompt").fill("温和直接");
       await page.getByTestId("role-save").click();
       assert.equal(await page.getByTestId("role-search").inputValue(), "");
-      assert.equal(await page.getByTestId("role-preset-card").count(), 4);
+      assert.equal(await page.getByTestId("role-preset-card").count(), 3);
       const id = await page.getByTestId("role-preset-card").last().getAttribute("data-role-id");
       await card(id).click();
       await page.getByTestId("role-personality-open").click();
@@ -101,12 +170,74 @@ test(
         officialIdentity,
       );
       await page.getByTestId("role-field-identityPrompt").fill("saved identity");
+      assert.equal(
+        await page.getByTestId("role-advanced-toggle").getAttribute("aria-expanded"),
+        "false",
+      );
+      await page.getByTestId("role-advanced-toggle").click();
+      const codeStyle = page.getByTestId("role-advanced-codeStyle");
+      const harness = page.getByTestId("role-advanced-harness");
+      assert.equal(await harness.getAttribute("readonly"), "");
+      assert.equal(await codeStyle.getAttribute("readonly"), null);
+      await page.getByTestId("role-unlock-harness").click();
+      const warning = page.getByTestId("role-unlock-warning");
+      assert.match(await warning.innerText(), /修改该提示词可能影响 ZCode 的工作效果，请谨慎修改/);
+      assert.equal(
+        await page
+          .getByTestId("role-unlock-cancel")
+          .evaluate((el) => el === document.activeElement),
+        true,
+      );
+      await page.keyboard.press("Escape");
+      await warning.waitFor({ state: "hidden" });
+      assert.equal(await personality.count(), 1);
+      assert.equal(await harness.getAttribute("readonly"), "");
+      assert.equal(
+        await page
+          .getByTestId("role-unlock-harness")
+          .evaluate((el) => el === document.activeElement),
+        true,
+      );
+      await page.getByTestId("role-unlock-harness").click();
+      await page.getByTestId("role-unlock-confirm").click();
+      await warning.waitFor({ state: "hidden" });
+      assert.equal(await harness.getAttribute("readonly"), null);
+      await harness.fill("Custom harness instruction");
+      await codeStyle.fill("Custom code style");
+      await page.getByTestId("role-reference-codeStyle").focus();
+      await page.getByTestId("role-reference-content-codeStyle").waitFor();
+      assert.match(
+        await page.getByTestId("role-reference-content-codeStyle").innerText(),
+        /编写与周围代码风格一致/,
+      );
+      await codeStyle.focus();
+      assert.match(await page.getByTestId("role-advanced-count").innerText(), /2/);
+      await page.getByTestId("role-advanced-toggle").click();
+      await page.getByTestId("role-advanced-content").waitFor({ state: "hidden" });
+      assert.match(await page.getByTestId("role-advanced-count").innerText(), /2/);
+      await page.getByTestId("role-advanced-toggle").click();
+      assert.equal(await harness.getAttribute("readonly"), null);
+      assert.equal(await codeStyle.inputValue(), "Custom code style");
+      await codeStyle.fill(" ");
+      await page.getByTestId("role-advanced-toggle").click();
+      await page.getByTestId("role-advanced-content").waitFor({ state: "hidden" });
+      await page.getByTestId("role-personality-confirm").click();
+      assert.equal(
+        await page.getByTestId("role-advanced-toggle").getAttribute("aria-expanded"),
+        "true",
+      );
+      assert.equal(await codeStyle.getAttribute("aria-invalid"), "true");
+      assert.equal(await codeStyle.evaluate((el) => el === document.activeElement), true);
+      await page.getByTestId("role-reset-codeStyle").click();
+      assert.equal(await codeStyle.inputValue(), officialCodeStyle);
+      assert.match(await page.getByTestId("role-advanced-count").innerText(), /1/);
+      await codeStyle.fill("Custom code style");
       await page.getByTestId("role-personality-confirm").click();
       await page.getByTestId("role-field-name").fill("Saved UI role");
       await page.evaluate(() => {
         window.__roleOriginalSetItem = Storage.prototype.setItem;
         Storage.prototype.setItem = function (key, value) {
-          if (key === "zcode-role-presets-v2") throw new Error("quota");
+          if (key === "zcode-role-presets-v3") throw new Error("quota");
           return window.__roleOriginalSetItem.call(this, key, value);
         };
       });
@@ -126,6 +257,23 @@ test(
         await page.getByTestId("role-field-identityPrompt").inputValue(),
         "saved identity",
       );
+      assert.equal(
+        await page.getByTestId("role-advanced-toggle").getAttribute("aria-expanded"),
+        "false",
+      );
+      assert.match(await page.getByTestId("role-advanced-count").innerText(), /2/);
+      await page.getByTestId("role-advanced-toggle").click();
+      assert.equal(await harness.getAttribute("readonly"), "");
+      assert.equal(await harness.inputValue(), "Custom harness instruction");
+      assert.equal(await codeStyle.inputValue(), "Custom code style");
+      await page.getByTestId("role-unlock-harness").click();
+      await page.getByTestId("role-unlock-confirm").click();
+      await page.getByTestId("role-reset-harness").click();
+      assert.notEqual(await harness.inputValue(), "Custom harness instruction");
+      await page.getByTestId("role-unlock-finalReply").click();
+      await page.getByTestId("role-unlock-cancel").click();
+      assert.equal(await page.getByTestId("role-advanced-finalReply").getAttribute("readonly"), "");
+      await page.getByTestId("role-advanced-codeComments").fill("Long text ".repeat(300));
       await page.getByTestId("role-field-expressionStylePrompt").fill(officialStyle.repeat(8));
       const artifacts = process.env.ZCODE_ROLE_E2E_ARTIFACT_DIR;
       for (const width of [1360, 390]) {
@@ -160,8 +308,32 @@ test(
       await page.getByTestId("plugin-store-search").waitFor();
       await page.getByTestId("task-new-button").click();
       assert.equal(await page.getByTestId("role-management-page").count(), 0);
+      await page.evaluate(() => localStorage.setItem("zcode-locale-preference", "en-US"));
+      await page.reload();
+      await openRoles();
+      await card(id).click();
+      await page.getByTestId("role-personality-open").click();
+      assert.match(
+        await page.getByTestId("role-advanced-toggle").innerText(),
+        /Advanced configuration/,
+      );
+      assert.equal(
+        await page.getByTestId("role-field-identityPrompt").inputValue(),
+        "saved identity",
+      );
+      await page.getByTestId("role-advanced-toggle").click();
+      assert.equal(await codeStyle.inputValue(), "Custom code style");
+      assert.equal(await harness.getAttribute("readonly"), "");
+      await page.getByTestId("role-unlock-harness").click();
+      assert.match(
+        await page.getByTestId("role-unlock-warning").innerText(),
+        /may affect how ZCode works/,
+      );
+      await page.getByTestId("role-unlock-cancel").click();
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
       console.log(
-        "Desktop/mobile light/dark, creation, nested cancel, persistence, failure and navigation verified.",
+        "Desktop/mobile light/dark, Chinese/English, creation, nested cancel, persistence, failure and navigation verified.",
       );
     } finally {
       await page.evaluate((backup) => {
@@ -172,15 +344,20 @@ test(
         for (const [key, value] of [
           ["zcode-role-presets-v1", backup.v1],
           ["zcode-role-presets-v2", backup.v2],
+          ["zcode-role-presets-v3", backup.v3],
+          ["zcode-locale-preference", backup.locale],
         ]) {
           if (value === null) localStorage.removeItem(key);
           else localStorage.setItem(key, value);
         }
       }, backup);
       if (originalViewport) await page.setViewportSize(originalViewport);
-      await page.reload();
-      await openRoles();
-      await browser.close();
+      try {
+        await page.reload();
+        await openRoles();
+      } finally {
+        await browser.close();
+      }
     }
   },
 );

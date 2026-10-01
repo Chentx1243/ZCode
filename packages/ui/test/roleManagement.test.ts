@@ -5,7 +5,11 @@ import {
   ROLE_PRESETS_STORAGE_KEY,
   LEGACY_ROLE_PRESETS_STORAGE_KEY,
 } from "../src/store/roleManagementStore.js";
-import { listRolePresets, type RolePresetFields } from "../src/lib/rolePresets.js";
+import {
+  listRolePresets,
+  rolePresetToBinding,
+  type RolePresetFields,
+} from "../src/lib/rolePresets.js";
 import {
   createTaskNavigationHistory,
   pushNavEntry,
@@ -35,6 +39,54 @@ const edited: RolePresetFields = {
   expressionStylePrompt: "温和直接。",
 };
 
+test("shipped DexCode exists without local data and carries its advanced prompts", () => {
+  for (const locale of ["zh-CN", "en-US"]) {
+    const roles = listRolePresets({}, locale);
+    assert.equal(roles.length, 2);
+    const dex = roles[1]!;
+    assert.equal(dex.name, "DexCode");
+    assert.match(dex.identityPrompt, /你是 DexCode/);
+    assert.deepEqual(Object.keys(dex.promptOverrides!).sort(), ["finalReply", "progress"]);
+    const binding = rolePresetToBinding(dex);
+    assert.equal(binding.kind, "custom");
+    assert.ok(binding.kind === "custom");
+    assert.equal(binding.identityPrompt, dex.identityPrompt);
+    assert.equal(binding.expressionStylePrompt, dex.expressionStylePrompt);
+    assert.deepEqual(binding.promptOverrides, dex.promptOverrides);
+    assert.ok(Object.isFrozen(binding));
+    assert.ok(Object.isFrozen(binding.promptOverrides));
+  }
+});
+
+test("retired example defaults fall back without losing other local roles or rewriting storage", () => {
+  for (const selectedRoleId of ["general-assistant", "writing-partner"]) {
+    const storage = memoryStorage();
+    const customId = "12a923fa-2db3-4a85-b456-8ffa17ef86a1";
+    const raw = JSON.stringify({
+      version: 3,
+      selectedRoleId,
+      overrides: {
+        [selectedRoleId]: edited,
+        [customId]: edited,
+        "04a923fa-2db3-4a85-b456-8ffa17ef86a1": { ...edited, name: "My DexCode" },
+      },
+    });
+    storage.setItem(ROLE_PRESETS_STORAGE_KEY, raw);
+    const store = createRoleManagementStore(() => storage);
+    store.getState().hydrate();
+    assert.equal(store.getState().loadError, null);
+    assert.equal(store.getState().selectedRoleId, "zcode-official");
+    const roles = listRolePresets(store.getState().overrides, "zh-CN");
+    assert.deepEqual(
+      roles.map((r) => r.id),
+      ["zcode-official", "04a923fa-2db3-4a85-b456-8ffa17ef86a1", customId],
+    );
+    assert.equal(roles[1]!.name, "My DexCode");
+    assert.deepEqual(store.getState().overrides[customId], edited);
+    assert.equal(storage.getItem(ROLE_PRESETS_STORAGE_KEY), raw);
+  }
+});
+
 test("official is first and immutable even through the update interface", () => {
   const storage = memoryStorage();
   const store = createRoleManagementStore(() => storage);
@@ -42,7 +94,7 @@ test("official is first and immutable even through the update interface", () => 
   const roles = listRolePresets(store.getState().overrides, "zh-CN");
   assert.deepEqual(
     roles.map((role) => role.id),
-    ["zcode-official", "general-assistant", "writing-partner"],
+    ["zcode-official", "04a923fa-2db3-4a85-b456-8ffa17ef86a1"],
   );
   assert.equal(roles[0]?.builtin, true);
   assert.equal(store.getState().updateRole("zcode-official", edited).error, "readonly");
@@ -54,11 +106,14 @@ test("saved fields survive a new client store and keep user text across language
   const storage = memoryStorage();
   const store = createRoleManagementStore(() => storage);
   store.getState().hydrate();
-  assert.equal(store.getState().updateRole("general-assistant", edited).ok, true);
+  assert.equal(
+    store.getState().updateRole("04a923fa-2db3-4a85-b456-8ffa17ef86a1", edited).ok,
+    true,
+  );
   const restored = createRoleManagementStore(() => storage);
   restored.getState().hydrate();
   assert.deepEqual(listRolePresets(restored.getState().overrides, "en-US")[1], {
-    id: "general-assistant",
+    id: "04a923fa-2db3-4a85-b456-8ffa17ef86a1",
     builtin: false,
     ...edited,
   });
@@ -73,7 +128,10 @@ test("blank required fields and unknown IDs cannot publish or persist changes", 
     { ...edited, name: "  " },
     { ...edited, identityPrompt: "\n " },
   ]) {
-    assert.equal(store.getState().updateRole("general-assistant", fields).error, "required");
+    assert.equal(
+      store.getState().updateRole("04a923fa-2db3-4a85-b456-8ffa17ef86a1", fields).error,
+      "required",
+    );
   }
   assert.equal(store.getState().updateRole("missing", edited).error, "not-found");
   assert.deepEqual(store.getState().overrides, {});
@@ -91,11 +149,17 @@ test("failed persistence never publishes unsaved fields and a retry can succeed"
     },
   }));
   store.getState().hydrate();
-  assert.equal(store.getState().updateRole("writing-partner", edited).error, "storage");
+  assert.equal(
+    store.getState().updateRole("04a923fa-2db3-4a85-b456-8ffa17ef86a1", edited).error,
+    "storage",
+  );
   assert.deepEqual(store.getState().overrides, {});
   fail = false;
-  assert.equal(store.getState().updateRole("writing-partner", edited).ok, true);
-  assert.deepEqual(store.getState().overrides["writing-partner"], edited);
+  assert.equal(
+    store.getState().updateRole("04a923fa-2db3-4a85-b456-8ffa17ef86a1", edited).ok,
+    true,
+  );
+  assert.deepEqual(store.getState().overrides["04a923fa-2db3-4a85-b456-8ffa17ef86a1"], edited);
 });
 
 test("stored official or unknown overrides cannot become built-in or extra roles", () => {
@@ -103,13 +167,19 @@ test("stored official or unknown overrides cannot become built-in or extra roles
   storage.setItem(
     ROLE_PRESETS_STORAGE_KEY,
     JSON.stringify({
-      version: 2,
-      overrides: { "zcode-official": edited, unknown: edited, "general-assistant": edited },
+      version: 3,
+      overrides: {
+        "zcode-official": edited,
+        unknown: edited,
+        "04a923fa-2db3-4a85-b456-8ffa17ef86a1": edited,
+      },
     }),
   );
   const store = createRoleManagementStore(() => storage);
   store.getState().hydrate();
-  assert.deepEqual(Object.keys(store.getState().overrides), ["general-assistant"]);
+  assert.deepEqual(Object.keys(store.getState().overrides), [
+    "04a923fa-2db3-4a85-b456-8ffa17ef86a1",
+  ]);
   assert.equal(listRolePresets(store.getState().overrides, "zh-CN")[0]?.name, "ZCode 官方");
 });
 
@@ -119,15 +189,15 @@ test("invalid data or unavailable storage preserves seeds and reports load failu
     "broken json",
     JSON.stringify({ version: 9, overrides: {} }),
     JSON.stringify({
-      version: 2,
-      overrides: { "writing-partner": { ...edited, identityPrompt: "" } },
+      version: 3,
+      overrides: { "04a923fa-2db3-4a85-b456-8ffa17ef86a1": { ...edited, identityPrompt: "" } },
     }),
   ]) {
     storage.setItem(ROLE_PRESETS_STORAGE_KEY, value);
     const store = createRoleManagementStore(() => storage);
     store.getState().hydrate();
     assert.equal(store.getState().loadError, "invalid");
-    assert.equal(listRolePresets(store.getState().overrides, "zh-CN").length, 3);
+    assert.equal(listRolePresets(store.getState().overrides, "zh-CN").length, 2);
   }
   const inaccessible = createRoleManagementStore(() => {
     throw new Error("denied");
@@ -161,11 +231,11 @@ test("creation preserves order, UUID and fields after reload", () => {
   const restored = createRoleManagementStore(() => storage);
   restored.getState().hydrate();
   const roles = listRolePresets(restored.getState().overrides, "zh-CN");
-  assert.equal(roles.length, 4);
-  assert.match(roles[3]!.id, /^[0-9a-f-]{36}$/);
-  assert.equal(roles[3]!.identityPrompt, edited.identityPrompt);
+  assert.equal(roles.length, 3);
+  assert.match(roles[2]!.id, /^[0-9a-f-]{36}$/);
+  assert.equal(roles[2]!.identityPrompt, edited.identityPrompt);
   assert.equal(
-    restored.getState().updateRole(roles[3]!.id, { ...edited, name: "renamed" }).ok,
+    restored.getState().updateRole(roles[2]!.id, { ...edited, name: "renamed" }).ok,
     true,
   );
   assert.equal(
@@ -179,7 +249,7 @@ test("v1 migration retains original prompt and backup; failure does not delete l
   const legacy = JSON.stringify({
     version: 1,
     overrides: {
-      "general-assistant": {
+      "04a923fa-2db3-4a85-b456-8ffa17ef86a1": {
         name: "Legacy",
         author: "Author",
         description: "",
@@ -199,8 +269,13 @@ test("v1 migration retains original prompt and backup; failure does not delete l
   assert.equal(storage.getItem(LEGACY_ROLE_PRESETS_STORAGE_KEY), legacy);
   const store = createRoleManagementStore(() => storage);
   store.getState().hydrate();
-  assert.equal(store.getState().overrides["general-assistant"]!.identityPrompt, "original text");
-  assert.ok(store.getState().overrides["general-assistant"]!.expressionStylePrompt);
+  assert.equal(
+    store.getState().overrides["04a923fa-2db3-4a85-b456-8ffa17ef86a1"]!.identityPrompt,
+    "original text",
+  );
+  assert.ok(
+    store.getState().overrides["04a923fa-2db3-4a85-b456-8ffa17ef86a1"]!.expressionStylePrompt,
+  );
   assert.ok(storage.getItem(ROLE_PRESETS_STORAGE_KEY));
   assert.equal(storage.getItem(LEGACY_ROLE_PRESETS_STORAGE_KEY), legacy);
 });

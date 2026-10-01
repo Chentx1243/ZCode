@@ -18,7 +18,7 @@ import { listRolePresets } from "../src/lib/rolePresets.js";
 
 const role = {
   kind: "custom" as const,
-  roleId: "writing-partner",
+  roleId: "04a923fa-2db3-4a85-b456-8ffa17ef86a1",
   name: "测试人物",
   identityPrompt: "你是一位海边的写作伙伴。",
   expressionStylePrompt: "用温和自然的语言，多举生活中的例子。",
@@ -144,8 +144,8 @@ test("global default persistence, failure, official recovery and editing preserv
   const store = createRoleManagementStore(() => storage);
   store.getState().hydrate();
   assert.equal(store.getState().selectedRoleId, "zcode-official");
-  assert.equal(store.getState().setDefaultRole("writing-partner").ok, true);
-  const snapshot = { ...listRolePresets(store.getState().overrides, "zh-CN")[2]! };
+  assert.equal(store.getState().setDefaultRole("04a923fa-2db3-4a85-b456-8ffa17ef86a1").ok, true);
+  const snapshot = { ...listRolePresets(store.getState().overrides, "zh-CN")[1]! };
   assert.equal(
     store.getState().updateRole(snapshot.id, { ...snapshot, identityPrompt: "new definition" }).ok,
     true,
@@ -153,10 +153,10 @@ test("global default persistence, failure, official recovery and editing preserv
   assert.notEqual(snapshot.identityPrompt, store.getState().overrides[snapshot.id]!.identityPrompt);
   const restored = createRoleManagementStore(() => storage);
   restored.getState().hydrate();
-  assert.equal(restored.getState().selectedRoleId, "writing-partner");
+  assert.equal(restored.getState().selectedRoleId, "04a923fa-2db3-4a85-b456-8ffa17ef86a1");
   fail = true;
   assert.equal(store.getState().setDefaultRole("zcode-official").error, "storage");
-  assert.equal(store.getState().selectedRoleId, "writing-partner");
+  assert.equal(store.getState().selectedRoleId, "04a923fa-2db3-4a85-b456-8ffa17ef86a1");
   fail = false;
   assert.equal(store.getState().setDefaultRole("zcode-official").ok, true);
   assert.equal(store.getState().selectedRoleId, "zcode-official");
@@ -211,7 +211,14 @@ test("actual runtime provider requests use session role and preserve the officia
       throw new Error("unexpected streaming");
     },
   };
-  for (const binding of [role, { kind: "official" as const }]) {
+  const advancedRole = {
+    ...role,
+    promptOverrides: {
+      codeStyle: "Advanced provider code style",
+      harness: "Advanced provider harness",
+    },
+  };
+  for (const binding of [advancedRole, { kind: "official" as const }]) {
     const runtime = new AgentRuntime(
       `role-${binding.kind}` as never,
       {
@@ -231,6 +238,14 @@ test("actual runtime provider requests use session role and preserve the officia
     }
   }
   assert.equal(captured.length, 2);
+  assert.ok(JSON.stringify(captured[0]!.messages).includes("Advanced provider code style"));
+  assert.ok(JSON.stringify(captured[0]!.messages).includes("Advanced provider harness"));
+  assert.ok(
+    !JSON.stringify(captured[0]!.messages).includes(
+      "Write code that reads like the surrounding code",
+    ),
+  );
+  assert.ok(!JSON.stringify(captured[1]!.messages).includes("Advanced provider harness"));
   assert.ok(JSON.stringify(captured[0]!.messages).includes(role.identityPrompt));
   assert.ok(JSON.stringify(captured[0]!.messages).includes(role.expressionStylePrompt));
   assert.ok(!JSON.stringify(captured[1]!.messages).includes(role.identityPrompt));

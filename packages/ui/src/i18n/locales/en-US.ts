@@ -1,5 +1,72 @@
 /** English translations */
 const enUS: Record<string, string> = {
+  "roles.advanced": "Advanced configuration",
+  "roles.defaultChineseReference": "Default prompt in Chinese",
+  "roles.advancedHint":
+    "For professional users. Customize Agent working rules; usually no changes are needed.",
+  "roles.advancedCount": "{count} customized",
+  "roles.unlock": "Unlock editing",
+  "roles.restoreDefault": "Restore default",
+  "roles.unlockTitle": "Unlock prompt editing",
+  "roles.unlockWarning": "Changing this prompt may affect how ZCode works. Please edit with care.",
+  "roles.confirmUnlock": "Confirm unlock",
+  "roles.advancedRequired": "This prompt cannot be blank. Enter text or restore the default.",
+  "roles.advanced.codeStyle.title": "Code writing conventions",
+  "roles.advanced.codeStyle.description":
+    "Controls naming, idioms and consistency with surrounding code.",
+  "roles.advanced.codeComments.title": "Code comment conventions",
+  "roles.advanced.codeComments.description":
+    "Controls when comments are useful and what they should describe.",
+  "roles.advanced.progress.title": "Progress updates",
+  "roles.advanced.progress.description":
+    "Controls introductions before tool use and updates during work.",
+  "roles.advanced.progress.risk":
+    "Changes may reduce progress updates and make task status harder to follow.",
+  "roles.advanced.finalReply.title": "Final response and delivery",
+  "roles.advanced.finalReply.description":
+    "Ensures answers, findings and deliverables appear in the final response.",
+  "roles.advanced.finalReply.risk":
+    "Changes may leave important results only in intermediate messages and omit final deliverables.",
+  "roles.advanced.authorization.title": "Authorization and outcome reporting",
+  "roles.advanced.authorization.description":
+    "Guides confirmation for irreversible or external actions and faithful outcome reporting.",
+  "roles.advanced.authorization.risk":
+    "Changes may affect confirmation and outcome reporting. Actual tool permissions remain system-controlled.",
+  "roles.advanced.security.title": "Security guidance",
+  "roles.advanced.security.description":
+    "Describes authorized security testing and dual-use security contexts.",
+  "roles.advanced.security.risk":
+    "Changes may affect interpretation of security authorization, without changing provider restrictions or tool permissions.",
+  "roles.advanced.harness.title": "Tool runtime contract (Harness)",
+  "roles.advanced.harness.description":
+    "Describes presentation, denied permissions, system reminders, tool choice and code references.",
+  "roles.advanced.harness.risk":
+    "Changes may disrupt handling of denied permissions, tool choice or system messages.",
+  "roles.advanced.contextManagement.title": "Context management and autonomy",
+  "roles.advanced.contextManagement.description":
+    "Guides continuation after summarization, autonomous work and task completion.",
+  "roles.advanced.contextManagement.risk":
+    "Changes may disrupt continuity, cause premature completion or inappropriate autonomous actions.",
+  "roles.advanced.desktop.title": "Desktop links and inline comments",
+  "roles.advanced.desktop.description":
+    "Defines local links, file references and inline comment formatting for desktop presentation.",
+  "roles.advanced.desktop.risk":
+    "Changes may break clickable file references or inline comment rendering.",
+  "roles.advanced.skillGuidance.title": "Skill invocation guidance",
+  "roles.advanced.skillGuidance.description":
+    "Guides explicitly requested skills when the skill tool and skills are available.",
+  "roles.advanced.skillGuidance.risk":
+    "Changes may cause missed invocations or invented skills; they do not add capabilities.",
+  "roles.advanced.memory.title": "Memory recording and maintenance",
+  "roles.advanced.memory.description":
+    "Defines memory format, index and maintenance; the actual path comes from the runtime.",
+  "roles.advanced.memory.risk":
+    "Changes may produce inconsistent memory formats or indexes and impair later recall.",
+  "roles.advanced.projectInstructions.title": "Project and user instructions",
+  "roles.advanced.projectInstructions.description":
+    "Defines adherence to project and user instructions without changing source files such as AGENTS.md.",
+  "roles.advanced.projectInstructions.risk":
+    "Changes may cause the model to overlook project conventions or user instructions.",
   "roles.personality": "Role personality",
   "roles.identityPrompt": "Character identity",
   "roles.expressionStylePrompt": "Expression style",

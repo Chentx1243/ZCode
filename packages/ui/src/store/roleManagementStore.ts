@@ -8,7 +8,9 @@ import {
   type RolePresetOverrides,
 } from "../lib/rolePresets.js";
 
-export const ROLE_PRESETS_STORAGE_KEY = "zcode-role-presets-v2";
+export const ROLE_PRESETS_STORAGE_KEY = "zcode-role-presets-v3";
+
+export const PREVIOUS_ROLE_PRESETS_STORAGE_KEY = "zcode-role-presets-v2";
 
 export const LEGACY_ROLE_PRESETS_STORAGE_KEY = "zcode-role-presets-v1";
 const customId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -34,12 +36,12 @@ interface RoleManagementState {
   updateRole: (id: string, fields: RolePresetFields) => RoleUpdateResult;
 }
 
-function readOverrides(raw: string, legacy = false): RolePresetOverrides {
+function readOverrides(raw: string, version: number): RolePresetOverrides {
   const parsed: unknown = JSON.parse(raw);
   if (!parsed || typeof parsed !== "object") throw new Error("invalid");
   const record = parsed as { version?: unknown; overrides?: unknown };
   if (
-    record.version !== (legacy ? 1 : 2) ||
+    record.version !== version ||
     !record.overrides ||
     typeof record.overrides !== "object" ||
     Array.isArray(record.overrides)
@@ -49,9 +51,9 @@ function readOverrides(raw: string, legacy = false): RolePresetOverrides {
   const overrides: RolePresetOverrides = {};
   for (const [id, fields] of Object.entries(record.overrides)) {
     const definition = getRolePresetDefinition(id);
-    if (definition?.builtin || (!definition && (legacy || !customId.test(id)))) continue;
+    if (definition?.builtin || (!definition && (version === 1 || !customId.test(id)))) continue;
     const value =
-      legacy && fields && typeof fields === "object"
+      version === 1 && fields && typeof fields === "object"
         ? {
             ...fields,
             identityPrompt: (fields as { prompt?: unknown }).prompt,
@@ -59,7 +61,7 @@ function readOverrides(raw: string, legacy = false): RolePresetOverrides {
           }
         : fields;
     if (!isRolePresetFields(value)) throw new Error("invalid");
-    overrides[id] = normalizeRolePresetFields(value);
+    overrides[id] = normalizeRolePresetFields(value, false);
   }
   return overrides;
 }
@@ -76,44 +78,57 @@ export function createRoleManagementStore(
     hydrate: () => {
       if (get().hydrated) return;
       let raw: string | null;
+      let version = 3;
       try {
-        raw = getStorage().getItem(ROLE_PRESETS_STORAGE_KEY);
+        const storage = getStorage();
+        raw = storage.getItem(ROLE_PRESETS_STORAGE_KEY);
+        if (raw === null) {
+          version = 2;
+          raw = storage.getItem(PREVIOUS_ROLE_PRESETS_STORAGE_KEY);
+        }
+        if (raw === null) {
+          version = 1;
+          raw = storage.getItem(LEGACY_ROLE_PRESETS_STORAGE_KEY);
+        }
       } catch {
         set({ hydrated: true, loadError: "storage" });
         return;
       }
       try {
-        if (raw !== null) {
-          const overrides = readOverrides(raw);
-          const selectedRoleId =
-            (JSON.parse(raw) as { selectedRoleId?: unknown }).selectedRoleId ?? "zcode-official";
-          if (
-            typeof selectedRoleId !== "string" ||
-            (!getRolePresetDefinition(selectedRoleId) && !overrides[selectedRoleId])
-          )
-            throw new Error("invalid default role");
-          set({
-            overrides,
-            selectedRoleId,
-            hydrated: true,
-            roleGeneration: get().roleGeneration + 1,
-          });
-          return;
+        const overrides = raw === null ? {} : readOverrides(raw, version);
+        let selectedRoleId =
+          raw === null
+            ? "zcode-official"
+            : ((JSON.parse(raw) as { selectedRoleId?: unknown }).selectedRoleId ??
+              "zcode-official");
+        // 旧示例已从版本预置列表移除；仅回退该默认选择，避免连带丢弃其他有效自建角色。
+        if (selectedRoleId === "general-assistant" || selectedRoleId === "writing-partner") {
+          selectedRoleId = "zcode-official";
         }
-        const legacy = getStorage().getItem(LEGACY_ROLE_PRESETS_STORAGE_KEY);
-        const overrides = legacy === null ? {} : readOverrides(legacy, true);
-        if (legacy !== null) {
+        if (
+          typeof selectedRoleId !== "string" ||
+          (!getRolePresetDefinition(selectedRoleId) && !overrides[selectedRoleId])
+        ) {
+          throw new Error("invalid default role");
+        }
+        if (raw !== null && version < 3) {
           try {
+            // 迁移必须先写成功再发布，不能让失败的恢复覆盖旧角色记录。
             getStorage().setItem(
               ROLE_PRESETS_STORAGE_KEY,
-              JSON.stringify({ version: 2, overrides, selectedRoleId: get().selectedRoleId }),
+              JSON.stringify({ version: 3, overrides, selectedRoleId }),
             );
           } catch {
             set({ hydrated: true, loadError: "storage" });
             return;
           }
         }
-        set({ overrides, hydrated: true, roleGeneration: get().roleGeneration + 1 });
+        set({
+          overrides,
+          selectedRoleId,
+          hydrated: true,
+          roleGeneration: get().roleGeneration + 1,
+        });
       } catch {
         set({ hydrated: true, loadError: "invalid" });
       }
@@ -127,7 +142,7 @@ export function createRoleManagementStore(
       try {
         getStorage().setItem(
           ROLE_PRESETS_STORAGE_KEY,
-          JSON.stringify({ version: 2, overrides: get().overrides, selectedRoleId: id }),
+          JSON.stringify({ version: 3, overrides: get().overrides, selectedRoleId: id }),
         );
       } catch {
         return { ok: false, error: "storage" };
@@ -145,7 +160,7 @@ export function createRoleManagementStore(
       try {
         getStorage().setItem(
           ROLE_PRESETS_STORAGE_KEY,
-          JSON.stringify({ version: 2, overrides, selectedRoleId: get().selectedRoleId }),
+          JSON.stringify({ version: 3, overrides, selectedRoleId: get().selectedRoleId }),
         );
       } catch {
         return { ok: false, error: "storage" };
@@ -168,7 +183,7 @@ export function createRoleManagementStore(
       try {
         getStorage().setItem(
           ROLE_PRESETS_STORAGE_KEY,
-          JSON.stringify({ version: 2, overrides, selectedRoleId: get().selectedRoleId }),
+          JSON.stringify({ version: 3, overrides, selectedRoleId: get().selectedRoleId }),
         );
       } catch {
         return { ok: false, error: "storage" };

@@ -126,6 +126,7 @@ export class ContextBuilder {
         buildIdentitySection(
           activeOutputStyle,
           role ? `# Active role: ${role.name}\n${role.identityPrompt}` : undefined,
+          role?.promptOverrides,
         ),
       );
     }
@@ -138,12 +139,14 @@ export class ContextBuilder {
     // guidance——契约里已把 Report outcomes faithfully 搬过去），保留 memory 与其后各段。
     if (!hasCustomSystemPrompt) {
       if (!isWorkflowActor && this.config.presentationSurface === "zcode_desktop") {
-        sections.push(buildDesktopContextSection());
+        sections.push(buildDesktopContextSection(role?.promptOverrides));
       }
 
       // behaviour part right after stable sp...
       if (!isWorkflowActor) {
-        sections.push(buildDynamicBehaviorSection(role?.expressionStylePrompt));
+        sections.push(
+          buildDynamicBehaviorSection(role?.expressionStylePrompt, role?.promptOverrides),
+        );
       }
 
       // Session-specific guidance
@@ -152,6 +155,7 @@ export class ContextBuilder {
         : buildSessionGuidanceSection(
             this.config.guidanceToolNames ?? [],
             (this.config.skills?.skills.length ?? 0) > 0,
+            role?.promptOverrides,
           );
       if (sessionGuidanceSection) {
         sections.push(sessionGuidanceSection);
@@ -159,7 +163,7 @@ export class ContextBuilder {
 
       // Memory
       if (this.config.memoryRoot) {
-        const memorySection = buildMemorySection(this.config.memoryRoot);
+        const memorySection = buildMemorySection(this.config.memoryRoot, role?.promptOverrides);
         if (memorySection) {
           sections.push(memorySection);
         }
@@ -173,7 +177,7 @@ export class ContextBuilder {
       }
 
       // Context Management
-      sections.push(buildContextManagementSection());
+      sections.push(buildContextManagementSection(role?.promptOverrides));
 
       const gitSystemContextSection = buildGitSystemContextSection(this.config.envInfo);
       if (gitSystemContextSection) {
@@ -198,6 +202,7 @@ export class ContextBuilder {
     // 5. Meta user context: workspace instructions/project memory first, date second.
     const requestUserContextSection = buildRequestUserContextSection({
       userInstructions: this.config.userInstructions,
+      promptOverrides: role?.promptOverrides,
       memoryIndexContent: this.config.memoryIndexContent,
       memoryRoot: this.config.memoryRoot,
     });

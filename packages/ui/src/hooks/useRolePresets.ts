@@ -2,7 +2,7 @@ import type { RoleBinding } from "@zcode/shared";
 import { useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { listRolePresets } from "@/lib/rolePresets.js";
+import { listRolePresets, rolePresetToBinding } from "@/lib/rolePresets.js";
 import { roleManagementStore } from "@/store/roleManagementStore.js";
 
 export function useRolePresets() {
@@ -39,13 +39,5 @@ export function readDefaultRoleBinding(): RoleBinding {
     (item) => item.id === state.selectedRoleId,
   );
   if (!role) throw new Error("Default role is unavailable");
-  return role.builtin
-    ? { kind: "official" }
-    : {
-        kind: "custom",
-        roleId: role.id,
-        name: role.name,
-        identityPrompt: role.identityPrompt,
-        expressionStylePrompt: role.expressionStylePrompt,
-      };
+  return rolePresetToBinding(role);
 }
