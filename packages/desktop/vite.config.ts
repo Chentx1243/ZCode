@@ -170,7 +170,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: "src/renderer",
-    plugins,
+    plugins: [
+      ...plugins,
+      {
+        name: "desktop-product-title",
+        transformIndexHtml(html) {
+          return resolveDesktopProductFlavor(process.env) === "dexcode"
+            ? html.replace("<title>ZCode</title>", "<title>DexCode</title>")
+            : html;
+        },
+      },
+    ],
     resolve: {
       alias: {
         // 修复 UI 组件库中的 @ 别名解析失败。

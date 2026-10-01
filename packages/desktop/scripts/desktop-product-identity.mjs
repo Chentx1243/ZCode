@@ -23,9 +23,19 @@ const PREVIEW_IDENTITY = Object.freeze({
   cuaHelperInstallVariant: "preview",
 });
 
+const DEXCODE_IDENTITY = Object.freeze({
+  flavor: "dexcode",
+  appId: "dev.dexcode.app",
+  productName: "DexCode",
+  linuxExecutableName: "dexcode",
+  linuxPackageName: "dexcode",
+  cuaHelperInstallVariant: "dexcode",
+});
+
 export const desktopProductIdentities = Object.freeze({
   production: PRODUCTION_IDENTITY,
   preview: PREVIEW_IDENTITY,
+  dexcode: DEXCODE_IDENTITY,
 });
 
 function normalizeDesktopZCodeEnv(env) {
@@ -57,6 +67,14 @@ export function isPreviewIdentityRequested(env = process.env) {
  * 未知 `ZCODE_ENV` 继续按 test 处理，和共享层 normalizeZCodeEnv 的 fail-safe 默认值一致。
  */
 export function resolveDesktopProductFlavor(env = process.env) {
+  const dexcode = env.ZCODE_DEXCODE_IDENTITY?.trim() ?? "";
+  if (!["", "0", "1"].includes(dexcode)) {
+    throw new Error("invalid ZCODE_DEXCODE_IDENTITY; expected 1 or 0");
+  }
+  if (dexcode === "1") {
+    if (isPreviewIdentityRequested(env)) throw new Error("DexCode and Preview identities conflict");
+    return "dexcode";
+  }
   if (isPreviewIdentityRequested(env)) {
     return "preview";
   }
@@ -83,6 +101,7 @@ export function resolveDesktopArtifactSuffix(env = process.env) {
  * 避免本地调试快捷方式和正式/Preview 安装包互相污染。
  */
 export function resolveWindowsAppUserModelIdForFlavor(flavor, runtime = { isPackaged: true }) {
+  if (flavor === "dexcode") return DEXCODE_IDENTITY.appId;
   if (runtime.isPackaged === false) {
     return "cn.aminer.zcode";
   }
