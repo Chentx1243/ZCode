@@ -45,8 +45,13 @@ test("shipped DexCode exists without local data and carries its advanced prompts
     assert.equal(roles.length, 2);
     const dex = roles[1]!;
     assert.equal(dex.name, "DexCode");
-    assert.match(dex.identityPrompt, /你是 DexCode/);
-    assert.deepEqual(Object.keys(dex.promptOverrides!).sort(), ["finalReply", "progress"]);
+    assert.match(dex.identityPrompt, /You are DexCode/);
+    assert.deepEqual(Object.keys(dex.promptOverrides!).sort(), [
+      "desktop",
+      "finalReply",
+      "progress",
+      "projectInstructions",
+    ]);
     const binding = rolePresetToBinding(dex);
     assert.equal(binding.kind, "custom");
     assert.ok(binding.kind === "custom");

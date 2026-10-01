@@ -36,15 +36,18 @@ test(
       await page.getByTestId("role-personality-open").click();
       assert.match(
         await page.getByTestId("role-field-identityPrompt").inputValue(),
-        /你是 DexCode/,
+        /You are DexCode/,
       );
       await page.getByTestId("role-advanced-toggle").click();
-      assert.match(await page.getByTestId("role-advanced-progress").inputValue(), /首次调用工具前/);
+      assert.match(
+        await page.getByTestId("role-advanced-progress").inputValue(),
+        /Before the first tool call/,
+      );
       assert.match(
         await page.getByTestId("role-advanced-finalReply").inputValue(),
-        /最终回复必须独立/,
+        /may not be shown to the user/,
       );
-      assert.match(await page.getByTestId("role-advanced-count").innerText(), /2/);
+      assert.match(await page.getByTestId("role-advanced-count").innerText(), /4/);
       await page.keyboard.press("Escape");
       await page.getByTestId("role-set-default").click();
       await page.reload();

@@ -2,15 +2,23 @@
 
 ## 版本预置 DexCode（2026-10-01）
 
-角色默认定义由共享 UI 的 rolePresets 唯一提供，不依赖开发者 localStorage 或 artifacts。全新安装及空存储的 Desktop/Web 均按“ZCode 官方、DexCode”顺序显示两项；移除通用助手和写作伙伴的默认定义。DexCode 采用用户手动修改并实测的身份、表达风格以及 progress/finalReply 稀疏覆盖，其他高级片段继承官方默认。中英文界面均使用同一中文提示词，简介提供英文翻译。
+角色默认定义由共享 UI 的 rolePresets 唯一提供，不依赖开发者 localStorage 或 artifacts。全新安装及空存储的 Desktop/Web 均按“ZCode 官方、DexCode”顺序显示两项；移除通用助手和写作伙伴的默认定义。中英文界面均使用同一提示词，简介提供英文翻译。
 
 DexCode 保留现有稳定 ID `04a923fa-2db3-4a85-b456-8ffa17ef86a1`，使现有同 ID 本地覆盖优先且不重复显示；作为版本预置的可编辑角色，仍生成 custom RoleBinding，不使用仅代表官方运行时的 builtin 标记。默认角色仍为官方；用户选择 DexCode 后沿用现有先持久化再发布的路径，新会话获得冻结快照，已有会话不变。
 
 旧示例 ID 的记录不再进入可选列表，默认指向旧示例时明确回退到官方，不能使其他 UUID 角色恢复失败。读取不会删除旧存储原文；后续显式保存仍写入当前有效角色。现有 DexCode 覆盖及其他自建角色保留，读取异常、未知默认 ID、存储失败语义不变。不增加状态所有者或协议。
 
+### 预置内容第二版（2026-10-02）
+
+DexCode 预置内容更新为用户在开发实例中手动调整并实测的第二版提示词：身份与表达风格改为英文（界面语言不影响提示词语言），高级覆盖从 progress/finalReply 两项扩展为 progress/finalReply/desktop/projectInstructions 四项。desktop 覆写携带 `# DexCode Desktop Context` 品牌标题；projectInstructions 覆写新增“输出风格与格式规则严格遵循默认行为”的约束；finalReply 采用自然对话式表达的编号清单。中文简介修正“带来了”“减少了”两处笔误，finalReply 清单修正重复的"5."编号；英文简介同步第二版描述。同 ID 本地覆盖仍优先，老用户不受影响，新安装读到第二版内容。
+
+验收补充：空存储下身份提示词匹配 `You are DexCode`，高级覆盖键为 desktop/finalReply/progress/projectInstructions 四项，E2E 的身份与高级覆盖断言随第二版文案同步。
+
 验收：空存储两种语言均包含 DexCode 且没有旧示例；完整提示词进入 custom 快照且不可变；预置角色可编辑、默认选择刷新恢复；现有同 ID 覆盖不重复；旧示例默认回退且其他自建资料保留。UI E2E 从空角色存储验证两张卡片、DexCode 默认选择及刷新恢复，并在 finally 恢复原资料。执行状态/运行时测试、typecheck、lint 和架构检查；未制作安装包时不声称已安装验证。
 
 验证记录：状态及运行时测试 26 项通过；`node --test packages/ui/test/rolePresetShipping.e2e.mjs` 通过，从运行中的开发客户端暂时清空角色存储，确认两张预置卡片、身份及高级覆盖、默认选择和刷新恢复，并恢复用户原记录。`pnpm typecheck` 通过；`pnpm lint` 0 错误、71 条警告；架构检查 0 违规；本次文件格式检查通过。完整 `roleManagement.e2e.mjs` 回归在长文本性格窗口确认按钮的 850px 视口位置断言失败，未将完整响应式回归计为通过，也未确认失败归因。未制作或安装发行包，发布包携带预设由共享 UI 源码定义保证；未新增真实模型测试。执行环境 Node 24.18.0，与 mise 固定的 24.14.0 有差异。
+
+第二版验证记录（2026-10-02）：roleManagement/roleSwitching/roleAdvanced 单测 26 项通过；`rolePresetShipping.e2e.mjs` 通过（断言已同步第二版文案：身份 `You are DexCode`、四项高级覆盖、advanced-count 4），E2E 前后用户本地覆盖与默认选择完整保留；`pnpm typecheck`、`pnpm lint`（0 错误）、`pnpm architecture:check --changed` 通过。未制作发行包；安装包携带第二版内容由 `rolePresets.ts` 源码定义保证，下次 `pnpm bundle:dexcode` 生效。
 
 ## 高级提示词配置（2026-10-01）
 
