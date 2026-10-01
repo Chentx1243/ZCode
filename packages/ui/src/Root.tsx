@@ -399,7 +399,6 @@ function RootInner({
         });
       } finally {
         if (!disposed) {
-          setProviderFamilyDomainMigrationComplete(true);
           try {
             await refreshAppSettings();
             await refreshProviderState();
@@ -407,6 +406,9 @@ function RootInner({
             logger.warn("[Root] provider family domain 迁移后刷新状态失败", {
               error: refreshError,
             });
+          } finally {
+            // 迁移完成标记必须晚于设置刷新，否则启动门禁会用迁移前的空运行域再次打开登录页。
+            if (!disposed) setProviderFamilyDomainMigrationComplete(true);
           }
         }
       }

@@ -98,6 +98,8 @@ export function LoginApiKeyForm({ onCancel, onSaved, onSkipped }: LoginApiKeyFor
         templateId,
         initialConfig: { access: { type: template.config.access.type, apiKey } },
       });
+      // API Key 已落盘但运行域未保存时，启动门禁仍会要求登录；必须先保存运行域再通知成功。
+      await settingService.update(buildLoginApiKeySkipSettings(providerChoice, Date.now()));
       const defaultModelPreference = buildLoginApiKeyDefaultModelPreferenceFromSelection(
         await modelSelectionService.getView(),
         created.providerId,
