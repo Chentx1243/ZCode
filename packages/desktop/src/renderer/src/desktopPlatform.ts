@@ -3,6 +3,31 @@ import { DesktopCommandIds, buildLocalMediaPreviewUrl, type IPlatformService } f
 
 import { desktopBrowserPlatformBridge } from "./desktopBrowserPlatformBridge.js";
 
+// TypeScript 6 的 DOM lib 尚未收录 Chromium Local Font Access，这里按实际返回结构做最小声明。
+declare global {
+  interface Window {
+    queryLocalFonts?: () => Promise<Array<{ family?: string }>>;
+  }
+}
+
+/** 渲染进程枚举系统字体 family：Electron 没有 app.getFontList 这类主进程 API，
+ * Chromium 的 queryLocalFonts 在 Electron 中默认授权且跨平台；页面不可见时会抛
+ * SecurityError，而字体下拉只在用户点击展开（页面必然可见）时才加载。 */
+async function listSystemFontFamilies(): Promise<string[]> {
+  const fonts = await window.queryLocalFonts?.();
+  if (!fonts) {
+    return [];
+  }
+  const families = new Set<string>();
+  for (const font of fonts) {
+    const family = font.family?.trim();
+    if (family) {
+      families.add(family);
+    }
+  }
+  return Array.from(families).sort((a, b) => a.localeCompare(b));
+}
+
 export function createDesktopPlatform(options: {
   isLocalDevelopmentRuntime: boolean;
 }): IPlatformService {
@@ -31,6 +56,7 @@ export function createDesktopPlatform(options: {
     listWSLDistros: () => window.zcode.listWSLDistros(),
     listDockerContainers: () => window.zcode.listDockerContainers(),
     listSSHConfigAliases: () => window.zcode.listSSHConfigAliases(),
+    listSystemFonts: () => listSystemFontFamilies(),
     loadMcpFromUserDirectory: (payload) => window.zcode.loadMcpFromUserDirectory(payload),
     saveMcpToUserDirectory: (payload) => window.zcode.saveMcpToUserDirectory(payload),
     migrateLegacyCommonMcp: (payload) => window.zcode.migrateLegacyCommonMcp(payload),

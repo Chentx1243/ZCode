@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 全局 store 是跨窗口广播与外观持久化（主题/语言/字号/字体）的集中装配点，外观字段按既有模式在此注册，拆散会引入第二条状态写入路径。 */
 /**
  * Zustand Store —— 全局状态管理
  *
@@ -30,6 +31,12 @@ import {
   normalizeUiFontSizePx,
   UI_FONT_SIZE_STORAGE_KEY,
 } from "@/lib/uiFontSize.js";
+import {
+  applyUiFontFamily,
+  loadUiFontFamily,
+  normalizeUiFontFamily,
+  UI_FONT_FAMILY_STORAGE_KEY,
+} from "@/lib/uiFontFamily.js";
 import {
   isTaskNotificationEnabled,
   isTaskNotificationSoundPreferenceEnabled,
@@ -119,6 +126,10 @@ export interface ZCodeState {
   /** UI 根 rem 字号（px） */
   uiFontSizePx: number;
   setUiFontSizePx: (fontSizePx: number) => void;
+
+  /** 界面与模型输出正文的字体选择（"system" | 内置字体 id | 系统字体 family 名） */
+  uiFontFamily: string;
+  setUiFontFamily: (fontFamily: string) => void;
 
   /** 是否启用性能模式 */
   performanceMode: boolean;
@@ -211,9 +222,15 @@ export interface ZCodeState {
 // 需要广播的字段 —— 只有这些字段的变更会发送给其他窗口
 // ============================================================================
 
-const BROADCAST_FIELDS = new Set(["theme", "locale", "uiFontSizePx", "interfaceMode"]);
+const BROADCAST_FIELDS = new Set([
+  "theme",
+  "locale",
+  "uiFontSizePx",
+  "uiFontFamily",
+  "interfaceMode",
+]);
 
-type BroadcastField = "theme" | "locale" | "uiFontSizePx" | "interfaceMode";
+type BroadcastField = "theme" | "locale" | "uiFontSizePx" | "uiFontFamily" | "interfaceMode";
 
 /** 广播频道名前缀 */
 const STATE_CHANNEL_PREFIX = "state:";
@@ -291,6 +308,14 @@ export function createZCodeStore(
       writeSafeLocalStorage(UI_FONT_SIZE_STORAGE_KEY, String(normalizedFontSizePx));
       applyUiFontSizePx(normalizedFontSizePx);
       set({ uiFontSizePx: normalizedFontSizePx });
+    },
+
+    uiFontFamily: loadUiFontFamily(),
+    setUiFontFamily: (fontFamily: string) => {
+      const normalizedFontFamily = normalizeUiFontFamily(fontFamily);
+      writeSafeLocalStorage(UI_FONT_FAMILY_STORAGE_KEY, normalizedFontFamily);
+      applyUiFontFamily(normalizedFontFamily);
+      set({ uiFontFamily: normalizedFontFamily });
     },
 
     performanceMode: loadPerformanceMode(),
@@ -482,6 +507,8 @@ export function createZCodeStore(
         state.setInterfaceMode(normalizeInterfaceMode(msg.payload));
       } else if (field === "uiFontSizePx" && typeof msg.payload === "number") {
         state.setUiFontSizePx(msg.payload);
+      } else if (field === "uiFontFamily" && typeof msg.payload === "string") {
+        state.setUiFontFamily(msg.payload);
       }
     } finally {
       applyingBroadcast = false;
@@ -491,6 +518,7 @@ export function createZCodeStore(
   syncSystemThemeListener(useStore.getState().theme);
   applyTheme(useStore.getState().theme);
   applyUiFontSizePx(useStore.getState().uiFontSizePx);
+  applyUiFontFamily(useStore.getState().uiFontFamily);
   document.documentElement.classList.toggle(
     "dark",
     resolveTheme(useStore.getState().theme) === "dark",

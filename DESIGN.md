@@ -184,6 +184,7 @@ The dynamic-workflow timeline draws with a feature-scoped token family:
 
 - **UI Sans**: use the app's default `font-sans` stack for almost all interface text.
 - **UI Mono**: use `font-mono` for paths, commands, code, identifiers, shortcuts, commit hashes, model IDs, and terminal-like data.
+- The Appearance "Font" setting controls the `--app-font-family` variable that `--font-sans` resolves to; it covers interface text and Markdown body output only. Code blocks, inline code, Diffs, and terminals stay on `font-mono` and never follow the setting.
 
 ### UI font tokens
 
