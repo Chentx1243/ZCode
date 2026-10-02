@@ -16,6 +16,13 @@ export const roleBindingSchema = z.discriminatedUnion("kind", [
       identityPrompt: z.string().trim().min(1),
       expressionStylePrompt: z.string().trim().min(1),
       promptOverrides: rolePromptOverridesSchema.optional(),
+      /** 角色级模型采样温度；缺省不设置，请求不带该字段，由服务端默认值决定。 */
+      temperature: z
+        .number()
+        .min(0.1)
+        .max(1)
+        .refine((value) => Number.isFinite(value))
+        .optional(),
     })
     .strict(),
 ]);

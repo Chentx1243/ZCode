@@ -32,13 +32,17 @@ import {
 import { SettingsFormTextarea } from "@/settings/SettingsFormTextarea.js";
 import { RoleFields } from "@/settings/RoleFields.js";
 import { RolePromptReferenceTooltip } from "@/settings/RolePromptReferenceTooltip.js";
+import { RoleTemperatureField } from "@/settings/RoleTemperatureField.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import type { RolePresetFields } from "@/lib/rolePresets.js";
+import { isRoleTemperature, type RolePresetFields } from "@/lib/rolePresets.js";
 
 type PersonalityFields = Pick<
   RolePresetFields,
-  "identityPrompt" | "expressionStylePrompt" | "promptOverrides"
+  "identityPrompt" | "expressionStylePrompt" | "promptOverrides" | "temperature"
 >;
+
+/** 高级配置的可锁条目：提示词 section 之外还有温度；温度不入 shared section 表，锁定语义一致。 */
+type AdvancedSettingId = RolePromptSectionId | "temperature";
 
 export function RolePersonalityDialog({
   draft,
@@ -55,19 +59,30 @@ export function RolePersonalityDialog({
 }) {
   const [local, setLocal] = useState(draft);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [unlocked, setUnlocked] = useState<ReadonlySet<RolePromptSectionId>>(() => new Set());
-  const [warning, setWarning] = useState<RolePromptSectionId | null>(null);
-  const [focusField, setFocusField] = useState<RolePromptSectionId | null>(null);
-  const [invalidField, setInvalidField] = useState<RolePromptSectionId | null>(null);
-  const fields = useRef<Partial<Record<RolePromptSectionId, HTMLTextAreaElement | null>>>({});
-  const triggers = useRef<Partial<Record<RolePromptSectionId, HTMLButtonElement | null>>>({});
+  const [unlocked, setUnlocked] = useState<ReadonlySet<AdvancedSettingId>>(() => new Set());
+  const [warning, setWarning] = useState<AdvancedSettingId | null>(null);
+  const [focusField, setFocusField] = useState<AdvancedSettingId | null>(null);
+  const [invalidField, setInvalidField] = useState<AdvancedSettingId | null>(null);
+  const fields = useRef<Partial<Record<AdvancedSettingId, HTMLTextAreaElement | HTMLInputElement | null>>>({});
+  const triggers = useRef<Partial<Record<AdvancedSettingId, HTMLButtonElement | null>>>({});
   const cancelWarning = useRef<HTMLButtonElement | null>(null);
   const confirmedUnlock = useRef(false);
-  const warningTarget = useRef<RolePromptSectionId | null>(null);
+  const warningTarget = useRef<AdvancedSettingId | null>(null);
   const id = useId();
   const { intl } = useZCodeIntl();
   const t = (key: string) => intl.formatMessage({ id: `roles.${key}` });
-  const count = Object.keys(normalizeRolePromptOverrides(local.promptOverrides) ?? {}).length;
+  // 温度以文本持有：空串表示未设置，非法输入保留原文用于提示，而不是回写草稿。
+  const [temperatureText, setTemperatureText] = useState(() =>
+    draft.temperature !== undefined ? String(draft.temperature) : "",
+  );
+  const temperatureTouched = temperatureText.trim() !== "";
+  const parsedTemperature = Number(temperatureText);
+  const temperatureInvalid = temperatureTouched && !isRoleTemperature(parsedTemperature);
+  const temperatureConfigured = temperatureTouched && !temperatureInvalid;
+  const temperatureLocked = !unlocked.has("temperature");
+  const count =
+    Object.keys(normalizeRolePromptOverrides(local.promptOverrides) ?? {}).length +
+    (temperatureConfigured ? 1 : 0);
 
   useEffect(() => {
     if (advancedOpen && focusField) {
@@ -77,20 +92,24 @@ export function RolePersonalityDialog({
   }, [advancedOpen, focusField]);
 
   const confirm = () => {
-    const invalid = ROLE_PROMPT_SECTION_IDS.find((key) => {
-      const value = local.promptOverrides?.[key];
-      return value !== undefined && !value.trim();
-    });
-    if (invalid) {
-      setInvalidField(invalid);
+    // 温度块位于高级配置顶部，非法时优先于提示词 section 定位。
+    const firstInvalid: AdvancedSettingId | undefined = temperatureInvalid
+      ? "temperature"
+      : ROLE_PROMPT_SECTION_IDS.find((key) => {
+          const value = local.promptOverrides?.[key];
+          return value !== undefined && !value.trim();
+        });
+    if (firstInvalid) {
+      setInvalidField(firstInvalid);
       setAdvancedOpen(true);
-      setFocusField(invalid);
+      setFocusField(firstInvalid);
       return;
     }
     onConfirm({
       identityPrompt: local.identityPrompt,
       expressionStylePrompt: local.expressionStylePrompt,
       promptOverrides: normalizeRolePromptOverrides(local.promptOverrides),
+      ...(temperatureConfigured ? { temperature: parsedTemperature } : {}),
     });
   };
 
@@ -160,6 +179,32 @@ export function RolePersonalityDialog({
             </CollapsibleTrigger>
             <CollapsibleContent data-testid="role-advanced-content">
               <div className="space-y-5 pt-4">
+                <RoleTemperatureField
+                  idPrefix={id}
+                  value={temperatureText}
+                  invalid={invalidField === "temperature"}
+                  readOnly={readOnly}
+                  locked={temperatureLocked}
+                  onValueChange={(value) => {
+                    setTemperatureText(value);
+                    if (invalidField === "temperature") setInvalidField(null);
+                  }}
+                  onUnlock={() => {
+                    confirmedUnlock.current = false;
+                    warningTarget.current = "temperature";
+                    setWarning("temperature");
+                  }}
+                  onReset={() => {
+                    setTemperatureText("");
+                    if (invalidField === "temperature") setInvalidField(null);
+                  }}
+                  registerInput={(el) => {
+                    fields.current["temperature"] = el;
+                  }}
+                  registerUnlockTrigger={(el) => {
+                    triggers.current["temperature"] = el;
+                  }}
+                />
                 {ROLE_PROMPT_SECTION_IDS.map((key) => {
                   const locked = ROLE_PROMPT_SECTIONS[key].locked && !unlocked.has(key);
                   const fieldReadOnly = readOnly || locked;

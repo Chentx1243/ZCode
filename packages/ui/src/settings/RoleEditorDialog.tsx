@@ -12,11 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import {
-  OFFICIAL_ROLE_TEMPLATE,
-  type RolePreset,
-  type RolePresetFields,
-} from "@/lib/rolePresets.js";
+import { OFFICIAL_ROLE_TEMPLATE, isRoleTemperature, type RolePreset, type RolePresetFields } from "@/lib/rolePresets.js";
 import type { RoleUpdateResult } from "@/store/roleManagementStore.js";
 
 export function RoleEditorDialog({
@@ -45,6 +41,8 @@ export function RoleEditorDialog({
           identityPrompt: role.identityPrompt,
           expressionStylePrompt: role.expressionStylePrompt,
           ...(role.promptOverrides ? { promptOverrides: { ...role.promptOverrides } } : {}),
+          // 越界温度按未配置处理，与 rolePresetToBinding 的投影口径一致，避免旧数据卡死保存。
+          ...(isRoleTemperature(role.temperature) ? { temperature: role.temperature } : {}),
         }
       : { name: "", description: "", author: t("localCreated"), ...OFFICIAL_ROLE_TEMPLATE },
   );
@@ -52,8 +50,7 @@ export function RoleEditorDialog({
   const personalityTrigger = useRef<HTMLButtonElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const readonly = Boolean(role?.builtin);
-  const invalid =
-    !draft.name.trim() || !draft.identityPrompt.trim() || !draft.expressionStylePrompt.trim();
+  const invalid = !draft.name.trim() || !draft.identityPrompt.trim() || !draft.expressionStylePrompt.trim();
   const changed =
     !role ||
     (Object.keys(draft) as (keyof RolePresetFields)[]).some(

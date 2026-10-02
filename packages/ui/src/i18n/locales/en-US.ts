@@ -11,6 +11,8 @@ const enUS: Record<string, string> = {
   "roles.unlockWarning": "Changing this prompt may affect how ZCode works. Please edit with care.",
   "roles.confirmUnlock": "Confirm unlock",
   "roles.advancedRequired": "This prompt cannot be blank. Enter text or restore the default.",
+  "roles.advanced.temperature.risk":
+    "Changing the temperature alters output stability; unsuitable values can amplify errors or make results unpredictable.",
   "roles.advanced.codeStyle.title": "Code writing conventions",
   "roles.advanced.codeStyle.description":
     "Controls naming, idioms and consistency with surrounding code.",
@@ -95,6 +97,10 @@ const enUS: Record<string, string> = {
   "roles.name": "Role name",
   "roles.author": "Author / source",
   "roles.description": "Description",
+  "roles.temperature": "Model temperature",
+  "roles.temperaturePlaceholder": "Model default",
+  "roles.temperatureHint": "Valid values are between 0.1 and 1.",
+  "roles.temperatureInvalid": "Temperature must be a number between 0.1 and 1.",
   "roles.officialReadOnly":
     "ZCode Official is the built-in default role. Its information is read-only.",
   "roles.editableHint": "Edit role information and personality, saved on this client.",

@@ -206,6 +206,38 @@ flowchart LR
 
 验收：工具栏顺序与当前角色一致；草稿改选不改全局默认；已有会话改选持久化且只作用于后续输入；busy/queue guard、同值 noop、无效 binding 及存储失败均不产生部分更新；重载后投影与 runtime 相同；模型选择和历史记录不受影响。
 
+### 草稿选中态与官方角色（2026-10-02）
+
+工具栏角色选中态是展示投影，从当前 binding 单向派生，不新增状态所有者：`custom` 取 `roleId`；`official` 固定显示 `zcode-official`；仅当草稿尚未携带 binding（从未选择）时才回退全局默认角色。已有会话无 binding 时同样显示官方。
+
+背景缺陷：草稿态曾把显式选择的 `{ kind: "official" }` 与"尚未选择"混入同一回退分支，全局默认为自定义角色时，用户在新建任务中切回官方后下拉高亮仍停在默认角色——实际 binding 已切换成功，但显示与事实相反，会误导用户对生效角色的判断。
+
+验收：默认角色为 DexCode 时，草稿显式选择官方后选中态为 `zcode-official`；未选择时仍显示默认角色；custom 选中态与已有会话行为不变。
+
+验证记录（2026-10-02）：新增选中态投影单测 4 项通过（显式官方、未选择回退、custom 保持、已有会话官方回退）；roleManagement/roleSwitching/roleAdvanced 26 项回归通过；`pnpm typecheck`、`pnpm lint`（0 错误、70 条既有警告）、`pnpm architecture:check --changed`（0 违规）通过。选中态修复仅改展示投影，未触碰协议与 runtime；未新增 E2E，运行中的开发客户端需刷新或重启后生效。
+
+### 角色模型温度（2026-10-02）
+
+自定义角色可配置模型采样温度；角色绑定快照携带该值，仅在该会话的主对话模型请求中生效。官方角色与未配置温度的自定义角色不传该参数，维持服务端默认（此前行为）。
+
+规则与边界：
+
+- `RolePresetFields` 与 custom `RoleBinding` 新增可选 `temperature`，取值为 [0.1, 1] 的有限数字；缺省语义是“不设置”，模型请求体不带该字段。UI 表单提供 0.1–1、步进 0.1 的数字输入（隐藏输入框右侧的上下步进箭头，仅键盘与手输），可清空表示不设置，非法输入禁用「确认」。
+- 温度编辑入口位于「角色性格管理 → 高级配置」内，与锁定提示词一致默认锁定：只读展示，点击「解锁编辑」并确认解锁警告后才能修改；提供「恢复默认」清空回未设置。官方角色在高级配置中保持只读，不出现解锁入口。主编辑对话框不再单独展示温度字段。
+- 高级配置的「已自定义 N 项」计数把已设置的温度计入。
+- 仅自定义角色（含 DexCode 覆盖）可编辑温度；官方角色只读，official binding 永远不带该字段。
+- 生效范围限定主对话 turn：注入点是 `runModelTextRequest` 构造 `ModelRequest.options` 处，从 `config.roleBinding` 读取。compact、标题生成、subagent、websearch 等辅助模型调用不消费角色温度。
+- 请求链路：`config.roleBinding.temperature` → `ModelRequest.options.temperature`（`ModelOptions` 扩展）→ adapter `toLegacyRequest` 映射 → `runner-options` 既有透传 → AI SDK；undefined 在 adapter 边界被移除，不进请求体。
+- 快照语义沿用角色绑定：binding 是会话创建/切换时的快照，修改角色库不回写已有会话；流式恢复重试复用同一请求温度。
+- 兼容性：localStorage v3 不升版本（字段可选，旧记录等同未配置）；旧 session entry 与旧客户端 binding 由 zod optional 兼容。取值范围在功能发布前由 [0, 2] 收窄为 [0.1, 1]：越界的旧调试温度在编辑器加载与绑定投影时按未配置处理（口径同 `rolePresetToBinding`）；带越界温度的旧调试 session entry 会使 binding 恢复抛错（不为此加兜底）。
+- UI 文案：输入提示为「合法值 0.1-1 之间」；不再展示模型上限差异的长说明（收窄范围本身已规避主流模型上限问题）。
+
+验收：自定义角色配置 0.1–1 内温度后，该角色会话的主对话模型请求 `options.temperature` 等于配置值；未配置或官方角色的请求不含该字段；小于 0.1、大于 1（含 0）、非数字被 `isRolePresetFields` 与 `roleBindingSchema` 拒绝；温度字段在高级配置中默认锁定，解锁前不可编辑；旧本地存储、旧 session entry 与旧协议 binding 解析后行为等同于未配置（越界温度除外，见兼容性）。
+
+验证记录（2026-10-02）：roleManagement/roleSwitching/roleAdvanced/composerRoleSelection 共 32 项通过，新增温度用例覆盖字段校验与持久化恢复（roleManagement）及真实 runtime 向模拟 provider 发出的请求参数（roleSwitching：custom 带温度 `options.temperature` 为配置值，custom 未配置与 official 不含该字段）。`pnpm typecheck`、`pnpm lint`（0 错误、70 条既有警告）、`pnpm architecture:check --changed`（0 违规）通过。adapter 侧扩展了 `ModelExecutionRequest.options` 类型与 `validateOptions`（越界温度在请求前拒绝而非静默剔除）。UI E2E 未新增；运行中的开发客户端需刷新，Agent CLI 需重新构建后重启生效。
+
+修订记录（2026-10-02 第二版）：取值范围收窄为 [0.1, 1]（含 UI、shared schema、adapter validateOptions 三处同步）；温度编辑从主编辑对话框移入「角色性格管理 → 高级配置」，默认锁定并走既有解锁警告流程，提供「恢复默认」清空；「已自定义 N 项」计数包含已设置的温度；输入框隐藏步进箭头，提示文案改为「合法值0.1-1之间」。温度块抽为 `RoleTemperatureField` 组件（RolePersonalityDialog 超 max-lines）。验证：roleManagement/roleSwitching/roleAdvanced 28 项 + composerRoleSelection 4 项（需 `--tsconfig packages/ui/tsconfig.json` 运行）通过；`pnpm typecheck`、`pnpm lint`（0 错误、69 条既有警告）、`pnpm architecture:check --changed`（0 违规）通过。附带清理：`V4ComposerToolbar.tsx` 中已提交的死参数 `isMobileViewport`（无调用方传参）与 core `auxiliary-model-options.ts` 的 `Required<ModelOptions>` 返回类型（新增 temperature 字段后被误强制必填）。
+
 ### 本轮验证记录（2026-09-30）
 
 - 角色管理及切换测试共17项通过：含官方桌面/终端提示词逐字基线、实际 runtime 向模拟 provider 发出的请求与工具集合、创建 ACK 前绑定、持久化失败、冷恢复快照读取及严格协议校验。

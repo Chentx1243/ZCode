@@ -252,6 +252,63 @@ test("actual runtime provider requests use session role and preserve the officia
   assert.deepEqual(captured[0]!.tools, captured[1]!.tools);
 });
 
+test("role temperature reaches the provider request only for configured custom roles", async () => {
+  const captured: { options?: { temperature?: number } }[] = [];
+  const model = {
+    providerId: "test",
+    modelId: "test",
+    properties: {
+      contextWindow: 131072,
+      maxOutputTokens: 2048,
+      inputFormat: { text: true },
+      outputFormat: { text: true },
+      supportsTools: true,
+    },
+    optionSpecs: { maxOutputTokens: { max: 2048, min: 1, default: 2048 } },
+    options: {},
+    bind() {
+      return this;
+    },
+    async generateText(request: { options?: { temperature?: number } }) {
+      captured.push(request);
+      return {
+        text: "测试完成",
+        toolCalls: [],
+        finishReason: "stop",
+        usage: { inputTokens: 10, outputTokens: 5 },
+      };
+    },
+    streamText(): AsyncIterable<never> {
+      throw new Error("unexpected streaming");
+    },
+  };
+  const warmRole = { ...role, temperature: 0.8 };
+  for (const binding of [warmRole, role, { kind: "official" as const }]) {
+    const runtime = new AgentRuntime(
+      `role-temperature-${captured.length}` as never,
+      {
+        modelSelection: { providerId: "test", modelId: "test" },
+        modelStreaming: "off",
+        workingDirectory: "/role-test",
+        envInfo,
+        memory: { enabled: false },
+      } as never,
+      { modelFactory: () => model, eventStore: createInMemorySessionEventStore() } as never,
+    );
+    try {
+      runtime.bindInitialRole(binding);
+      await runtime.executeTurn("测试输入");
+    } finally {
+      await runtime.closeBrowserSession();
+    }
+  }
+  assert.equal(captured.length, 3);
+  assert.equal(captured[0]!.options?.temperature, 0.8);
+  // 未配置温度的 custom 角色与 official 角色都不带该字段，维持服务端默认。
+  assert.ok(!("temperature" in (captured[1]!.options ?? {})));
+  assert.ok(!("temperature" in (captured[2]!.options ?? {})));
+});
+
 test("V4 creation installs the requested role before the create acknowledgement", async () => {
   let bound: unknown;
   const record = {

@@ -41,7 +41,7 @@ import {
   type AiSdkModelTextRequest,
   type ResolvedAiSdkModel,
 } from "./runner-runtime.js";
-import { createModel, type ModelExecutionRequest } from "./model.js";
+import { createModel, type ExecutionModelOptions, type ModelExecutionRequest } from "./model.js";
 
 export type { AiSdkModelRetryOptions } from "./retry-policy.js";
 export type {
@@ -193,6 +193,9 @@ export class AiSdkModelAdapter {
         responseJsonSchema: request.responseJsonSchema,
         abortSignal: request.abortSignal,
         maxOutputTokens: request.options.maxOutputTokens,
+        // 角色级采样温度经 ModelOptions 进入 adapter；undefined 由 runner-options 的
+        // removeUndefined 移除，不进 provider 请求体。
+        temperature: request.options.temperature,
         ...invocationContext,
         ...(shouldAttachReasoningTelemetry
           ? {
@@ -222,7 +225,7 @@ export class AiSdkModelAdapter {
     };
     const resolveForRequest = (
       request: AiSdkModelTextRequest,
-      optionValues: Required<ModelOptions>,
+      optionValues: ExecutionModelOptions,
     ): ((requestAuth?: ModelRequestAuth) => ResolvedAiSdkModel) => {
       const maxOutputTokens = requireMaxOutputTokens(optionValues);
       return request.refreshRuntimeHeadersBeforeAttempt

@@ -13,6 +13,13 @@ export interface RolePresetFields {
   identityPrompt: string;
   expressionStylePrompt: string;
   promptOverrides?: RolePromptOverrides;
+  /** 角色级模型采样温度，[0.1, 1]；缺省表示不设置，模型请求不带该字段。 */
+  temperature?: number;
+}
+
+/** 与 shared roleBindingSchema 的取值约束保持一致，越界值在保存与绑定前同时被拒。 */
+export function isRoleTemperature(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0.1 && value <= 1;
 }
 
 export interface RolePreset extends RolePresetFields {
@@ -119,7 +126,8 @@ export function isRolePresetFields(value: unknown): value is RolePresetFields {
     typeof fields.expressionStylePrompt === "string" &&
     Boolean(fields.expressionStylePrompt.trim()) &&
     (fields.promptOverrides === undefined ||
-      rolePromptOverridesSchema.safeParse(fields.promptOverrides).success)
+      rolePromptOverridesSchema.safeParse(fields.promptOverrides).success) &&
+    (fields.temperature === undefined || isRoleTemperature(fields.temperature))
   );
 }
 
@@ -136,6 +144,7 @@ export function normalizeRolePresetFields(
     identityPrompt: text(fields.identityPrompt),
     expressionStylePrompt: text(fields.expressionStylePrompt),
     ...(promptOverrides ? { promptOverrides } : {}),
+    ...(isRoleTemperature(fields.temperature) ? { temperature: fields.temperature } : {}),
   };
 }
 
@@ -150,5 +159,6 @@ export function rolePresetToBinding(role: RolePreset): RoleBinding {
         identityPrompt: role.identityPrompt,
         expressionStylePrompt: role.expressionStylePrompt,
         ...(role.promptOverrides ? { promptOverrides: role.promptOverrides } : {}),
+        ...(isRoleTemperature(role.temperature) ? { temperature: role.temperature } : {}),
       });
 }

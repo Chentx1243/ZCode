@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input.js";
 import { SettingsFormTextarea } from "@/settings/SettingsFormTextarea.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import type { RolePresetFields } from "@/lib/rolePresets.js";
-export type RoleTextField = Exclude<keyof RolePresetFields, "promptOverrides">;
+export type RoleTextField = Exclude<keyof RolePresetFields, "promptOverrides" | "temperature">;
 
 export function RoleFields({
   fields,

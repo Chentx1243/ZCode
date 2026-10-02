@@ -10,6 +10,7 @@ import {
   rolePresetToBinding,
   type RolePresetFields,
 } from "../src/lib/rolePresets.js";
+import { roleBindingSchema } from "../../shared/src/role-binding.js";
 import {
   createTaskNavigationHistory,
   pushNavEntry,
@@ -37,6 +38,14 @@ const edited: RolePresetFields = {
   description: "简洁、直接",
   identityPrompt: "先理解需求，再清晰回答。",
   expressionStylePrompt: "温和直接。",
+};
+
+const role = {
+  kind: "custom" as const,
+  roleId: "04a923fa-2db3-4a85-b456-8ffa17ef86a1",
+  name: "测试人物",
+  identityPrompt: "你是一位海边的写作伙伴。",
+  expressionStylePrompt: "用温和自然的语言，多举生活中的例子。",
 };
 
 test("shipped DexCode exists without local data and carries its advanced prompts", () => {
@@ -283,4 +292,56 @@ test("v1 migration retains original prompt and backup; failure does not delete l
   );
   assert.ok(storage.getItem(ROLE_PRESETS_STORAGE_KEY));
   assert.equal(storage.getItem(LEGACY_ROLE_PRESETS_STORAGE_KEY), legacy);
+});
+
+test("role temperature is validated, persisted and projected into the binding snapshot", () => {
+  const storage = memoryStorage();
+  const store = createRoleManagementStore(() => storage);
+  store.getState().hydrate();
+  assert.equal(store.getState().createRole({ ...edited, temperature: 0.7 }).ok, true);
+  const id = Object.keys(store.getState().overrides).find(
+    (candidate) => store.getState().overrides[candidate]!.name === edited.name,
+  )!;
+  assert.equal(store.getState().overrides[id]!.temperature, 0.7);
+
+  // 合法范围收窄为 [0.1, 1]：0 与超过 1 的值同样越界。
+  for (const temperature of [-0.1, 0, 1.01, 2.1, Number.POSITIVE_INFINITY, Number.NaN, "0.7"]) {
+    assert.notEqual(
+      store.getState().updateRole(id, { ...edited, temperature: temperature as number }).ok,
+      true,
+      `temperature ${String(temperature)} should be rejected`,
+    );
+  }
+  assert.equal(store.getState().overrides[id]!.temperature, 0.7);
+
+  for (const temperature of [0.1, 1]) {
+    assert.equal(store.getState().updateRole(id, { ...edited, temperature }).ok, true);
+    assert.equal(store.getState().overrides[id]!.temperature, temperature);
+  }
+
+  const restored = createRoleManagementStore(() => storage);
+  restored.getState().hydrate();
+  assert.equal(restored.getState().overrides[id]!.temperature, 1);
+
+  const roles = listRolePresets(restored.getState().overrides, "zh-CN");
+  const binding = rolePresetToBinding(roles.find((entry) => entry.id === id)!);
+  assert.ok(binding.kind === "custom");
+  assert.equal(binding.temperature, 1);
+
+  const official = roles.find((entry) => entry.builtin)!;
+  assert.equal(rolePresetToBinding(official).kind, "official");
+
+  assert.equal(roleBindingSchema.safeParse({ ...role, temperature: 0.7 }).success, true);
+  for (const temperature of [-0.1, 0, 1.01, 2.1, Number.NaN]) {
+    assert.equal(roleBindingSchema.safeParse({ ...role, temperature }).success, false);
+  }
+
+  // 保存不带温度的资料即清除配置，回到服务端默认。
+  assert.equal(store.getState().updateRole(id, edited).ok, true);
+  assert.equal(store.getState().overrides[id]!.temperature, undefined);
+  const cleared = rolePresetToBinding(listRolePresets(store.getState().overrides, "zh-CN").find(
+    (entry) => entry.id === id,
+  )!);
+  assert.ok(cleared.kind === "custom");
+  assert.equal(cleared.temperature, undefined);
 });
