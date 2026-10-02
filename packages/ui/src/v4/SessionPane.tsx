@@ -102,6 +102,7 @@ import {
 import { useDraftSessionPrewarm } from "@/v4/composer/useDraftSessionPrewarm.js";
 import { projectSessionConfigToTaskConfigOptions } from "@/v4/composer/sessionConfigTaskCache.js";
 import { useDraftRuntimeRebuildGate } from "@/v4/composer/useDraftRuntimeRebuildGate.js";
+import { resolveComposerRoleId } from "@/v4/composer/draftWorkspaceDefaults.js";
 import { useDraftModelReadinessGate } from "@/v4/composer/useDraftModelReadinessGate.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
@@ -4422,12 +4423,11 @@ export function SessionPane({
   // subagent 右侧 child tab 是观察视图；复用普通 SessionPane 时
   // 若仍创建 composer，会让用户误以为可以直接向 child session 继续输入。
   const activeRoleBinding = sessionId ? snapshot?.config.roleBinding : draftConfig.roleBinding;
-  const activeRoleId =
-    activeRoleBinding?.kind === "custom"
-      ? activeRoleBinding.roleId
-      : sessionId
-        ? "zcode-official"
-        : defaultRoleId;
+  const activeRoleId = resolveComposerRoleId({
+    roleBinding: activeRoleBinding,
+    sessionId,
+    defaultRoleId,
+  });
   const activeRoleName =
     activeRoleBinding?.kind === "custom"
       ? activeRoleBinding.name

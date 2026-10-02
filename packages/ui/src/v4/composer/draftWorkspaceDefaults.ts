@@ -46,3 +46,16 @@ export function resolveDraftThoughtCurrentValue(params: {
   // 当前值只认选择结果；新建/主动选模的补全由 Selection 入口负责，恢复空值必须保留。
   return "";
 }
+
+/** 工具栏角色选中态：custom 取 roleId，official 是确定选中态而非"未选择"。
+ * 只有草稿从未携带 binding 时才回退全局默认，否则默认角色会把显式的官方选择
+ * 在 UI 上吞掉（binding 已切换但高亮停在默认角色，显示与事实相反）。 */
+export function resolveComposerRoleId(params: {
+  roleBinding: SessionConfigState["roleBinding"];
+  sessionId: string | null;
+  defaultRoleId: string;
+}): string {
+  if (params.roleBinding?.kind === "custom") return params.roleBinding.roleId;
+  if (params.roleBinding?.kind === "official") return "zcode-official";
+  return params.sessionId ? "zcode-official" : params.defaultRoleId;
+}
