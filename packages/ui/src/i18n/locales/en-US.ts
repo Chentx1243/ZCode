@@ -1,5 +1,118 @@
 /** English translations */
 const enUS: Record<string, string> = {
+  "roles.advanced": "Advanced configuration",
+  "roles.defaultChineseReference": "Default prompt in Chinese",
+  "roles.advancedHint":
+    "For professional users. Customize Agent working rules; usually no changes are needed.",
+  "roles.advancedCount": "{count} customized",
+  "roles.unlock": "Unlock editing",
+  "roles.restoreDefault": "Restore default",
+  "roles.unlockTitle": "Unlock prompt editing",
+  "roles.unlockWarning": "Changing this prompt may affect how ZCode works. Please edit with care.",
+  "roles.confirmUnlock": "Confirm unlock",
+  "roles.advancedRequired": "This prompt cannot be blank. Enter text or restore the default.",
+  "roles.advanced.temperature.risk":
+    "Changing the temperature alters output stability; unsuitable values can amplify errors or make results unpredictable.",
+  "roles.advanced.codeStyle.title": "Code writing conventions",
+  "roles.advanced.codeStyle.description":
+    "Controls naming, idioms and consistency with surrounding code.",
+  "roles.advanced.codeComments.title": "Code comment conventions",
+  "roles.advanced.codeComments.description":
+    "Controls when comments are useful and what they should describe.",
+  "roles.advanced.progress.title": "Progress updates",
+  "roles.advanced.progress.description":
+    "Controls introductions before tool use and updates during work.",
+  "roles.advanced.progress.risk":
+    "Changes may reduce progress updates and make task status harder to follow.",
+  "roles.advanced.finalReply.title": "Final response and delivery",
+  "roles.advanced.finalReply.description":
+    "Ensures answers, findings and deliverables appear in the final response.",
+  "roles.advanced.finalReply.risk":
+    "Changes may leave important results only in intermediate messages and omit final deliverables.",
+  "roles.advanced.authorization.title": "Authorization and outcome reporting",
+  "roles.advanced.authorization.description":
+    "Guides confirmation for irreversible or external actions and faithful outcome reporting.",
+  "roles.advanced.authorization.risk":
+    "Changes may affect confirmation and outcome reporting. Actual tool permissions remain system-controlled.",
+  "roles.advanced.security.title": "Security guidance",
+  "roles.advanced.security.description":
+    "Describes authorized security testing and dual-use security contexts.",
+  "roles.advanced.security.risk":
+    "Changes may affect interpretation of security authorization, without changing provider restrictions or tool permissions.",
+  "roles.advanced.harness.title": "Tool runtime contract (Harness)",
+  "roles.advanced.harness.description":
+    "Describes presentation, denied permissions, system reminders, tool choice and code references.",
+  "roles.advanced.harness.risk":
+    "Changes may disrupt handling of denied permissions, tool choice or system messages.",
+  "roles.advanced.contextManagement.title": "Context management and autonomy",
+  "roles.advanced.contextManagement.description":
+    "Guides continuation after summarization, autonomous work and task completion.",
+  "roles.advanced.contextManagement.risk":
+    "Changes may disrupt continuity, cause premature completion or inappropriate autonomous actions.",
+  "roles.advanced.desktop.title": "Desktop links and inline comments",
+  "roles.advanced.desktop.description":
+    "Defines local links, file references and inline comment formatting for desktop presentation.",
+  "roles.advanced.desktop.risk":
+    "Changes may break clickable file references or inline comment rendering.",
+  "roles.advanced.skillGuidance.title": "Skill invocation guidance",
+  "roles.advanced.skillGuidance.description":
+    "Guides explicitly requested skills when the skill tool and skills are available.",
+  "roles.advanced.skillGuidance.risk":
+    "Changes may cause missed invocations or invented skills; they do not add capabilities.",
+  "roles.advanced.memory.title": "Memory recording and maintenance",
+  "roles.advanced.memory.description":
+    "Defines memory format, index and maintenance; the actual path comes from the runtime.",
+  "roles.advanced.memory.risk":
+    "Changes may produce inconsistent memory formats or indexes and impair later recall.",
+  "roles.advanced.projectInstructions.title": "Project and user instructions",
+  "roles.advanced.projectInstructions.description":
+    "Defines adherence to project and user instructions without changing source files such as AGENTS.md.",
+  "roles.advanced.projectInstructions.risk":
+    "Changes may cause the model to overlook project conventions or user instructions.",
+  "roles.personality": "Role personality",
+  "roles.identityPrompt": "Character identity",
+  "roles.expressionStylePrompt": "Expression style",
+  "roles.localCreated": "Locally created",
+  "roles.confirm": "Confirm",
+  "roles.officialReference": "Zcode official default role. Read-only, for reference only.",
+  "roles.personalityHint": "Confirm to return to role details, then save your changes.",
+  "roles.setDefault": "Set as default role",
+  "roles.officialName": "ZCode Official",
+  "roles.currentRole": "Current role",
+  "roles.selectRole": "Select role",
+  "roles.switchFailed": "Could not switch role. Please try again.",
+  "roles.busyCannotSwitch":
+    "Role switching is unavailable while this conversation is loading, running or has queued input.",
+  "roles.draftRoleNotReady":
+    "The default role is preparing, or this runtime does not support roles yet. Please retry shortly.",
+  "roles.title": "Role Management",
+  "roles.subtitle":
+    "Choose the default role for new conversations, and switch roles from within a conversation",
+  "roles.search": "Search roles",
+  "roles.presets": "Role presets",
+  "roles.noResults": "No matching roles",
+  "roles.create": "Add role",
+  "roles.currentDefault": "Current default",
+  "roles.details": "Role Details",
+  "roles.name": "Role name",
+  "roles.author": "Author / source",
+  "roles.description": "Description",
+  "roles.temperature": "Model temperature",
+  "roles.temperaturePlaceholder": "Model default",
+  "roles.temperatureHint": "Valid values are between 0.1 and 1.",
+  "roles.temperatureInvalid": "Temperature must be a number between 0.1 and 1.",
+  "roles.officialReadOnly":
+    "ZCode Official is the built-in default role. Its information is read-only.",
+  "roles.editableHint": "Edit role information and personality, saved on this client.",
+  "roles.save": "Save",
+  "roles.cancel": "Cancel",
+  "roles.close": "Close",
+  "roles.requiredError": "Role name, character identity and expression style are required.",
+  "roles.saveError": "Could not save. Please retry. Your edits have been kept.",
+  "roles.loadError":
+    "Could not restore local role information. Preset content is shown instead; new tasks use the official role.",
+  "roles.unspecified": "Not specified",
+  "roles.noDescription": "No description yet",
   "startPlan.recommendation.subagentDescription":
     "Your Start Plan has quota available for {model}. Switch this subagent’s model to the Start Plan?",
   "startPlan.recommendation.preferenceSaveFailed":
@@ -2121,6 +2234,16 @@ const enUS: Record<string, string> = {
   "settings.uiFontSize": "UI font size",
   "settings.uiFontSizeDescription":
     "Adjust interface text without changing icons or layout dimensions.",
+  "settings.uiFontFamily": "Font",
+  "settings.uiFontFamilyDescription": "Adjust the font for the app interface and model output.",
+  "settings.uiFontFamily.system": "Follow system",
+  "settings.uiFontFamily.builtinSourceHanSans": "Source Han Sans (built-in)",
+  "settings.uiFontFamily.searchPlaceholder": "Search fonts…",
+  "settings.uiFontFamily.noMatches": "No matching fonts",
+  "settings.uiFontFamily.presetGroup": "Preset",
+  "settings.uiFontFamily.systemGroup": "System fonts",
+  "settings.uiFontFamily.loadingSystemFonts": "Loading system fonts…",
+  "settings.uiFontFamily.loadSystemFontsFailed": "Failed to load system fonts",
   "settings.systemTitle": "General",
   "settings.systemDescription": "These preferences affect the current window experience.",
   "settings.locale": "Language",

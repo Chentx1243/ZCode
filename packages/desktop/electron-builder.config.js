@@ -457,6 +457,7 @@ export default {
   // Linux deb 打包（fpm）会校验 package metadata 中的 homepage、author.email、maintainer。
   // CI 环境下若这些字段缺失会在产物阶段直接失败。这里统一在构建配置补齐，避免依赖外部注入。
   extraMetadata: {
+    name: desktopProductIdentity.flavor === "dexcode" ? "dexcode-desktop" : "@zcode/desktop",
     version: buildMetadata.appVersion,
     zcodeProductFlavor: desktopProductIdentity.flavor,
     homepage: "https://zcode.z.ai",
@@ -649,14 +650,17 @@ export default {
   // 打包阶段统一复用安装时准备好的原生文件，避免 electron-builder 再触发一轮不受控的本地编译。
   npmRebuild: false,
   // OAuth deep link 协议注册（macOS 打包后需要 Info.plist 中声明 CFBundleURLTypes）
-  protocols: [
-    {
-      // 协议处理器的展示名之前使用小写 scheme，打包产物里的协议描述无法体现产品名。
-      // 展示名跟随安装包身份；scheme 仍保持 zcode，因此两个应用中最后注册者会成为默认 handler。
-      name: desktopProductIdentity.productName,
-      schemes: ["zcode"],
-    },
-  ],
+  protocols:
+    desktopProductIdentity.flavor === "dexcode"
+      ? []
+      : [
+          {
+            // 协议处理器的展示名之前使用小写 scheme，打包产物里的协议描述无法体现产品名。
+            // 展示名跟随安装包身份；scheme 仍保持 zcode，因此两个应用中最后注册者会成为默认 handler。
+            name: desktopProductIdentity.productName,
+            schemes: ["zcode"],
+          },
+        ],
   mac: {
     target: ["dmg", "zip"],
     category: "public.app-category.developer-tools",

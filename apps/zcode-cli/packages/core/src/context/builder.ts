@@ -81,6 +81,7 @@ export class ContextBuilder {
    */
   build(): ContextBuildResult {
     const sections: ContextSection[] = [];
+    const role = this.config.roleBinding?.kind === "custom" ? this.config.roleBinding : undefined;
     const activeOutputStyle = this.config.outputStyle?.prompt.trim()
       ? this.config.outputStyle
       : undefined;
@@ -96,11 +97,14 @@ export class ContextBuilder {
       );
     }
     const isWorkflowActor = workflowActor !== undefined;
+    if (role && (hasCustomSystemPrompt || isWorkflowActor)) {
+      throw new Error("Role binding conflicts with custom system prompt or workflow actor");
+    }
 
     // 1. CLI / product prefix. Keep this as the short leading identity block.
     // 「You are ZCode, an interactive coding agent」对一个
     // 只对脚本说话、可能连读文件工具都没有的子代理是错的身份，且走在正确身份段前面。
-    if (!isWorkflowActor) {
+    if (!isWorkflowActor && !role) {
       sections.push(buildCliPrefixSection());
     }
 
@@ -118,7 +122,13 @@ export class ContextBuilder {
     } else if (workflowActor !== undefined) {
       sections.push(buildWorkflowActorIdentitySection(workflowActor));
     } else {
-      sections.push(buildIdentitySection(activeOutputStyle));
+      sections.push(
+        buildIdentitySection(
+          activeOutputStyle,
+          role ? `# Active role: ${role.name}\n${role.identityPrompt}` : undefined,
+          role?.promptOverrides,
+        ),
+      );
     }
 
     // 3. Dynamic system context
@@ -129,12 +139,14 @@ export class ContextBuilder {
     // guidance——契约里已把 Report outcomes faithfully 搬过去），保留 memory 与其后各段。
     if (!hasCustomSystemPrompt) {
       if (!isWorkflowActor && this.config.presentationSurface === "zcode_desktop") {
-        sections.push(buildDesktopContextSection());
+        sections.push(buildDesktopContextSection(role?.promptOverrides));
       }
 
       // behaviour part right after stable sp...
       if (!isWorkflowActor) {
-        sections.push(buildDynamicBehaviorSection());
+        sections.push(
+          buildDynamicBehaviorSection(role?.expressionStylePrompt, role?.promptOverrides),
+        );
       }
 
       // Session-specific guidance
@@ -143,6 +155,7 @@ export class ContextBuilder {
         : buildSessionGuidanceSection(
             this.config.guidanceToolNames ?? [],
             (this.config.skills?.skills.length ?? 0) > 0,
+            role?.promptOverrides,
           );
       if (sessionGuidanceSection) {
         sections.push(sessionGuidanceSection);
@@ -150,7 +163,7 @@ export class ContextBuilder {
 
       // Memory
       if (this.config.memoryRoot) {
-        const memorySection = buildMemorySection(this.config.memoryRoot);
+        const memorySection = buildMemorySection(this.config.memoryRoot, role?.promptOverrides);
         if (memorySection) {
           sections.push(memorySection);
         }
@@ -164,7 +177,7 @@ export class ContextBuilder {
       }
 
       // Context Management
-      sections.push(buildContextManagementSection());
+      sections.push(buildContextManagementSection(role?.promptOverrides));
 
       const gitSystemContextSection = buildGitSystemContextSection(this.config.envInfo);
       if (gitSystemContextSection) {
@@ -189,6 +202,7 @@ export class ContextBuilder {
     // 5. Meta user context: workspace instructions/project memory first, date second.
     const requestUserContextSection = buildRequestUserContextSection({
       userInstructions: this.config.userInstructions,
+      promptOverrides: role?.promptOverrides,
       memoryIndexContent: this.config.memoryIndexContent,
       memoryRoot: this.config.memoryRoot,
     });

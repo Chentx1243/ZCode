@@ -116,12 +116,23 @@ export async function runModelTextRequest(
     streamIdleTimeoutRetryNumber: projectedOptions.streamRecovery?.retryNumber,
     streamRecovery: projectedOptions.streamRecovery,
   };
+  // 角色温度只作用于主对话 turn：binding 是会话快照，compact/标题等辅助调用不经此入口，
+  // 也不消费角色温度。official binding 与未配置的自定义角色不带该字段，维持服务端默认。
+  const roleBinding = this.getRoleBinding();
+  const roleTemperature = roleBinding.kind === "custom" ? roleBinding.temperature : undefined;
   const modelRequest = {
     messages: projectedOptions.messages,
     tools: projectedOptions.tools,
     abortSignal: projectedOptions.abortSignal,
-    ...(projectedOptions.maxOutputTokens !== undefined
-      ? { options: { maxOutputTokens: projectedOptions.maxOutputTokens } }
+    ...(projectedOptions.maxOutputTokens !== undefined || roleTemperature !== undefined
+      ? {
+          options: {
+            ...(projectedOptions.maxOutputTokens !== undefined
+              ? { maxOutputTokens: projectedOptions.maxOutputTokens }
+              : {}),
+            ...(roleTemperature !== undefined ? { temperature: roleTemperature } : {}),
+          },
+        }
       : {}),
   };
 

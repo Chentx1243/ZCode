@@ -891,6 +891,25 @@ export class ConversationV4Gateway {
   }
 
   /** 授权已经提交到任务事务，失败重试必须重放权威日志，不能再次提权或丢弃提交事实。 */
+  async ingestCommittedRoleBinding(sessionId: string, event: SessionEvent): Promise<void> {
+    if (event.type !== SessionEventType.RoleBindingChanged)
+      throw new Error("Expected role binding event");
+    try {
+      this.ingest(sessionId, event);
+    } catch (error) {
+      if (!this.getOrCreateRawSequenceState(sessionId).failedEventById.has(String(event.id)))
+        throw error;
+    }
+    // raw 事件已去重但投影曾失败时，重新 ingest 不会重试；沿已有权限提交恢复路径重放日志。
+    const state = this.getOrCreateRawSequenceState(sessionId);
+    if (state.failedEventById.has(String(event.id))) {
+      await this.hydrationInFlight.get(sessionId);
+      this.hydratedSessions.delete(sessionId);
+      await this.hydratePublisher(sessionId, undefined, true);
+    }
+    await this.waitForProjectionEventCommit(sessionId, String(event.id));
+  }
+
   async waitForPermissionGrantCommit(sessionId: string, eventId: string): Promise<void> {
     const state = this.getOrCreateRawSequenceState(sessionId);
     if (state.failedEventById.has(eventId)) {

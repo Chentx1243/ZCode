@@ -652,6 +652,25 @@ export class SqliteSessionStore
     return sessionEntryRepository.saveSessionEntry(this.db, input);
   }
 
+  async commitRoleBinding(
+    input: Parameters<NonNullable<SessionStorePort["commitRoleBinding"]>>[0],
+  ): Promise<void> {
+    this.throwBeforeWrite();
+    if (input.binding.sessionID !== input.pending.sessionID) {
+      throw new Error("Role commit session mismatch");
+    }
+    // 原因：角色已保存而事件丢失会使界面与模型身份分裂，两条 entry 必须共同提交。
+    this.db.exec("begin immediate");
+    try {
+      sessionEntryRepository.saveSessionEntry(this.db, input.binding);
+      sessionEntryRepository.saveSessionEntry(this.db, input.pending);
+      this.db.exec("commit");
+    } catch (error) {
+      this.db.exec("rollback");
+      throw error;
+    }
+  }
+
   async sessionEntries(input: {
     sessionID: SessionId;
     type?: SessionEntryType | string;

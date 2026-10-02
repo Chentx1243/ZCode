@@ -23,9 +23,19 @@ const PREVIEW_IDENTITY = Object.freeze({
   cuaHelperInstallVariant: "preview",
 });
 
+const DEXCODE_IDENTITY = Object.freeze({
+  flavor: "dexcode",
+  appId: "dev.dexcode.app",
+  productName: "DexCode",
+  linuxExecutableName: "dexcode",
+  linuxPackageName: "dexcode",
+  cuaHelperInstallVariant: "dexcode",
+});
+
 export const desktopProductIdentities = Object.freeze({
   production: PRODUCTION_IDENTITY,
   preview: PREVIEW_IDENTITY,
+  dexcode: DEXCODE_IDENTITY,
 });
 
 function normalizeDesktopZCodeEnv(env) {
@@ -57,6 +67,14 @@ export function isPreviewIdentityRequested(env = process.env) {
  * 未知 `ZCODE_ENV` 继续按 test 处理，和共享层 normalizeZCodeEnv 的 fail-safe 默认值一致。
  */
 export function resolveDesktopProductFlavor(env = process.env) {
+  const dexcode = env.ZCODE_DEXCODE_IDENTITY?.trim() ?? "";
+  if (!["", "0", "1"].includes(dexcode)) {
+    throw new Error("invalid ZCODE_DEXCODE_IDENTITY; expected 1 or 0");
+  }
+  if (dexcode === "1") {
+    if (isPreviewIdentityRequested(env)) throw new Error("DexCode and Preview identities conflict");
+    return "dexcode";
+  }
   if (isPreviewIdentityRequested(env)) {
     return "preview";
   }
@@ -79,10 +97,11 @@ export function resolveDesktopArtifactSuffix(env = process.env) {
  * 返回 Windows Shell 使用的 AppUserModelId。
  *
  * 打包态必须复用 electron-builder 的 appId，否则快捷方式里的 AUMID、开始菜单索引
- * 和运行中的 Electron 进程会被 Windows 视为三个不同的应用。开发态继续保留旧身份，
- * 避免本地调试快捷方式和正式/Preview 安装包互相污染。
+ * 和运行中的 Electron 进程会被 Windows 视为三个不同的应用。官方/Preview 开发态保留旧身份；
+ * DexCode 开发态也使用独立身份，避免与官方开发实例混合分组。
  */
 export function resolveWindowsAppUserModelIdForFlavor(flavor, runtime = { isPackaged: true }) {
+  if (flavor === "dexcode") return DEXCODE_IDENTITY.appId;
   if (runtime.isPackaged === false) {
     return "cn.aminer.zcode";
   }

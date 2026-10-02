@@ -14,8 +14,12 @@ import {
   type ModelResult,
 } from "@zcode/contracts";
 
+/** 执行请求的选项：结构化档位仍是必填，角色温度可选（缺省不进 provider 请求体）。 */
+export type ExecutionModelOptions = Required<Omit<ModelOptions, "temperature">> &
+  Pick<ModelOptions, "temperature">;
+
 export interface ModelExecutionRequest extends Omit<ModelRequest, "options"> {
-  options: Required<ModelOptions>;
+  options: ExecutionModelOptions;
 }
 
 export interface ModelExecutor {
@@ -103,7 +107,7 @@ function freezeOptionSpecs(specs: ModelOptionSpecs): ModelOptionSpecs {
   });
 }
 
-function validateOptions(specs: ModelOptionSpecs, options: ModelOptions): Required<ModelOptions> {
+function validateOptions(specs: ModelOptionSpecs, options: ModelOptions): ExecutionModelOptions {
   const maxOutputTokens = options.maxOutputTokens;
   if (
     maxOutputTokens === undefined ||
@@ -126,7 +130,21 @@ function validateOptions(specs: ModelOptionSpecs, options: ModelOptions): Requir
     });
   }
 
-  return { maxOutputTokens, reasoningLevel };
+  // 角色温度没有模型级 spec（不同 provider 上限不同），这里只校验统一安全范围；
+  // 越界值直接拒绝而不是静默丢弃，调用方才能发现配置错误。
+  validateTemperatureRange(options.temperature);
+  return options.temperature === undefined
+    ? { maxOutputTokens, reasoningLevel }
+    : { maxOutputTokens, reasoningLevel, temperature: options.temperature };
+}
+
+function validateTemperatureRange(temperature: number | undefined): void {
+  if (
+    temperature !== undefined &&
+    (!Number.isFinite(temperature) || temperature < 0.1 || temperature > 1)
+  ) {
+    throw invalidRequest("temperature is outside the supported range", { temperature });
+  }
 }
 
 function validatePartialOptions(specs: ModelOptionSpecs, options: ModelOptions): ModelOptions {
@@ -149,6 +167,7 @@ function validatePartialOptions(specs: ModelOptionSpecs, options: ModelOptions):
       values: specs.reasoningLevel.values,
     });
   }
+  validateTemperatureRange(options.temperature);
   return { ...options };
 }
 

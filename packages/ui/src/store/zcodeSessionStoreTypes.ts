@@ -464,6 +464,7 @@ export interface ZCodeSessionStoreState {
   ) => void;
   /** 记录插件市场主视图导航。 */
   taskNavPushPluginStore: (workspacePath: string, workspaceIdentity?: string) => void;
+  taskNavPushRoleManagement: (workspacePath: string, workspaceIdentity?: string) => void;
   /** 后退，返回目标 entry；到头了返回 null */
   taskNavGoBack: () => WorkspaceNavEntry | null;
   /** 前进，返回目标 entry；到头了返回 null */

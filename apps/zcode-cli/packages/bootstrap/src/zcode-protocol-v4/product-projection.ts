@@ -1,3 +1,4 @@
+import type { RoleBinding } from "@zcode/shared";
 import { PERMISSION_FULL_ACCESS_OPTION_ID } from "@zcode/shared/zcode-protocol-v4";
 // ProductProjection —— CLI 权威投影第二 reducer。
 // 输入：CLI 事件日志（SessionEvent，权威事实源）；输出：ConversationDelta[]。
@@ -228,6 +229,7 @@ function hookExecutionDisplayName(
  * 触碰」的字段——日志重放值永远优先（"最终值以日志为准"）。
  */
 export interface SessionConfigSeed {
+  roleBinding?: RoleBinding;
   permissionGrant?: { interactionId: string };
   planEnabled?: boolean;
   modelSelection?: ModelSelectedPayload["modelSelection"];
@@ -487,6 +489,7 @@ export class ProductProjection {
   // 又避免后续种子覆盖新事件已原子发布的模型能力。
   private configThoughtLevelsTouchedByEvent = false;
   private configModeTouchedByEvent = false;
+  private configRoleBindingTouchedByEvent = false;
   // assistant 守恒：非运行期拒收的正文流计数（gateway 据此置 stale）。
   private droppedContentStreamEventCount = 0;
   // 读取期 legacy fallback 必须可观测；否则 normalizer 缺字段后仍会退化为“可见但不可寻址”。
@@ -555,6 +558,14 @@ export class ProductProjection {
   seedConfig(seed: SessionConfigSeed): void {
     const config = { ...this.snapshot.config };
     let changed = false;
+    if (
+      !this.configRoleBindingTouchedByEvent &&
+      seed.roleBinding &&
+      JSON.stringify(config.roleBinding) !== JSON.stringify(seed.roleBinding)
+    ) {
+      config.roleBinding = { ...seed.roleBinding };
+      changed = true;
+    }
     if (!config.permissionGrant && seed.permissionGrant) {
       config.permissionGrant = seed.permissionGrant;
       changed = true;
@@ -1127,6 +1138,7 @@ export class ProductProjection {
     clone.configModelTouchedByEvent = this.configModelTouchedByEvent;
     clone.configThoughtLevelsTouchedByEvent = this.configThoughtLevelsTouchedByEvent;
     clone.configModeTouchedByEvent = this.configModeTouchedByEvent;
+    clone.configRoleBindingTouchedByEvent = this.configRoleBindingTouchedByEvent;
     clone.droppedContentStreamEventCount = this.droppedContentStreamEventCount;
     clone.normalizationDiagnostics = [...this.normalizationDiagnostics];
     return clone;
@@ -1170,6 +1182,7 @@ export class ProductProjection {
     this.configModelTouchedByEvent = candidate.configModelTouchedByEvent;
     this.configThoughtLevelsTouchedByEvent = candidate.configThoughtLevelsTouchedByEvent;
     this.configModeTouchedByEvent = candidate.configModeTouchedByEvent;
+    this.configRoleBindingTouchedByEvent = candidate.configRoleBindingTouchedByEvent;
     this.droppedContentStreamEventCount = candidate.droppedContentStreamEventCount;
     this.normalizationDiagnostics = candidate.normalizationDiagnostics;
   }
@@ -1357,6 +1370,8 @@ export class ProductProjection {
         return this.onStreamRecoveryRetryStarted(event);
       case SessionEventType.ModelSelected:
         return this.onModelSelected(event);
+      case SessionEventType.RoleBindingChanged:
+        return this.onRoleBindingChanged(event);
       case SessionEventType.ModelComplete:
         return this.onModelComplete(event);
       case SessionEventType.ToolCallScheduled:
@@ -3830,6 +3845,20 @@ export class ProductProjection {
               : {}),
           },
         },
+      },
+    ];
+  }
+
+  private onRoleBindingChanged(event: SessionEvent): ConversationDelta[] {
+    const payload = event.payload as { roleBinding?: RoleBinding };
+    this.configRoleBindingTouchedByEvent = true;
+    if (!payload.roleBinding) return [];
+    if (JSON.stringify(this.snapshot.config.roleBinding) === JSON.stringify(payload.roleBinding))
+      return [];
+    return [
+      {
+        op: "state.updated",
+        patch: { config: { ...this.snapshot.config, roleBinding: payload.roleBinding } },
       },
     ];
   }

@@ -16,6 +16,7 @@
  * 三件套不能全部门控在 config!==null 上——草稿态会整体不渲染。
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDownIcon, UserRoundIcon } from "lucide-react";
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
   getModelProviderFamilySpec,
@@ -31,6 +32,7 @@ import {
   type ZCodeProviderAccountAccess,
   type ZCodeConfigOption,
   type ZCodeProvider,
+  type RoleBinding,
 } from "@zcode/shared";
 import type {
   SessionConfigState,
@@ -39,6 +41,13 @@ import type {
 } from "@zcode/shared/zcode-protocol-v4";
 import { ModelConfigSelect, type ModelSelectGroup } from "@/ModelConfigSelect.js";
 import { Button } from "@/components/ui/button.js";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.js";
 import { ChatContextUsage } from "@/chat-input-toolbar/display.js";
 import {
   hasChatCodingPlanUsageRemaining,
@@ -329,9 +338,6 @@ export interface V4ComposerToolbarProps {
   sessionId: string | null;
   phase: SessionPhase | null;
   provider?: ZCodeProvider;
-  /** 当前工具条是否运行在 Web 远控壳中。 */
-  /** 当前视口是否为手机输入布局。 */
-  isMobileViewport?: boolean;
   /** 草稿态（sessionId=null），仅区分新任务呈现，不改变选择来源。 */
   draftMode?: boolean;
   /** 当前 scope 的 Composer 选择；新任务与已有会话都只显示这份状态。 */
@@ -350,6 +356,11 @@ export interface V4ComposerToolbarProps {
     model: string,
     sourceModel: ModelSelectionSource | null,
   ) => void;
+  roleOptions: readonly { id: string; name: string; binding: RoleBinding }[];
+  selectedRoleId: string;
+  selectedRoleName?: string;
+  roleSelectionDisabled?: boolean;
+  onSelectRole: (binding: RoleBinding) => void;
   /** 选中思考深度；modelContext 固定本次用户操作的目标模型。 */
   onSelectThought: (thought: string, modelContext: { provider: string; model: string }) => void;
   onSwitchMode: (mode: string) => void;
@@ -369,7 +380,6 @@ function V4ComposerModelControlsImpl({
   modelSelectionState = MODEL_SELECTION_LOADING_STATE,
   modelSelectionReload,
   provider,
-  isMobileViewport = false,
   draftMode = false,
   draftConfig,
   usage,
@@ -377,6 +387,11 @@ function V4ComposerModelControlsImpl({
   activeConfigPicker,
   onConfigPickerOpenChange,
   onSelectModel,
+  roleOptions,
+  selectedRoleId,
+  selectedRoleName,
+  roleSelectionDisabled = false,
+  onSelectRole,
   onSelectThought,
   onSendCompressionCommand,
   onRecoverCustomModelSelection,
@@ -425,6 +440,10 @@ function V4ComposerModelControlsImpl({
     (open: boolean) => {
       onConfigPickerOpenChange("thought", open);
     },
+    [onConfigPickerOpenChange],
+  );
+  const handleRolePickerOpenChange = useCallback(
+    (open: boolean) => onConfigPickerOpenChange("role", open),
     [onConfigPickerOpenChange],
   );
 
@@ -1020,6 +1039,52 @@ function V4ComposerModelControlsImpl({
         onSendCompressionCommand={onSendCompressionCommand}
         compressionDisabled={disabled || recoveryPending}
       />
+      {roleOptions.length > 0 ? (
+        <DropdownMenu
+          open={activeConfigPicker === "role"}
+          onOpenChange={handleRolePickerOpenChange}
+        >
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={roleSelectionDisabled}
+              data-testid="current-role"
+              data-composer-collapse-priority="2"
+              aria-label={intl.formatMessage({ id: "roles.selectRole" })}
+              title={
+                roleSelectionDisabled
+                  ? intl.formatMessage({ id: "roles.busyCannotSwitch" })
+                  : intl.formatMessage({ id: "roles.currentRole" })
+              }
+              className="h-7 max-w-36 gap-1 rounded-lg px-2 text-ui-base"
+            >
+              <UserRoundIcon className="size-4 shrink-0" />
+              <span className="truncate">
+                {selectedRoleName ??
+                  roleOptions.find((role) => role.id === selectedRoleId)?.name ??
+                  intl.formatMessage({ id: "roles.officialName" })}
+              </span>
+              <ChevronDownIcon className="size-3.5 shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="end" className="min-w-44">
+            <DropdownMenuRadioGroup
+              value={selectedRoleId}
+              onValueChange={(id) => {
+                const selected = roleOptions.find((role) => role.id === id);
+                if (selected) onSelectRole(selected.binding);
+              }}
+            >
+              {roleOptions.map((role) => (
+                <DropdownMenuRadioItem key={role.id} value={role.id}>
+                  <span className="min-w-0 flex-1 truncate">{role.name}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
       {modelSelectionState.status === "error" && modelSelectionReload ? (
         <Button
           type="button"

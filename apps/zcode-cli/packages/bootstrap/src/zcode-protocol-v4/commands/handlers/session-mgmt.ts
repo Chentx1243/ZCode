@@ -6,6 +6,7 @@ import type {
   CommandPayloadMap,
   CommandResult,
 } from "@zcode/shared/zcode-protocol-v4";
+import { freezeRoleBinding } from "@zcode/shared";
 import { mapAttachmentRefsToTurnAttachments } from "../attachment-refs.js";
 import { inputIntentMetadata } from "../input-intent.js";
 import { commandAdmissionOf } from "../executor.js";
@@ -47,6 +48,10 @@ async function createSession(
   ) {
     throw new V4InputAdmissionRejectedError("proto.invalidPayload", "input must not be empty");
   }
+  // 畸形绑定在建立 record 前拒绝；运行时冲突仍由 bindInitialRole 判断并清理。
+  const initialRole = payload.config?.roleBinding
+    ? freezeRoleBinding(payload.config.roleBinding)
+    : undefined;
   const { sessionId } = await host.createSessionRecord({
     workspaceId: payload.workspaceId,
     mcpServers: payload.mcpServers,
@@ -59,6 +64,22 @@ async function createSession(
   // 会话保持 runtime 缺省。
   if (payload.config) {
     const record = requireRecord(host, sessionId);
+    if (initialRole) {
+      try {
+        record.app.runtime.bindInitialRole(initialRole);
+      } catch (error) {
+        // 角色是创建契约，不能降级成官方后首发；失败必须收回刚创建的 deferred record。
+        try {
+          await host.closeSession?.(sessionId);
+        } catch (cleanupError) {
+          host.logger?.warn?.("v4 createSession role failure cleanup failed", {
+            sessionId,
+            error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+          });
+        }
+        throw error;
+      }
+    }
     try {
       await applyRequestedSessionConfig(host, record, payload.config);
     } catch (error) {

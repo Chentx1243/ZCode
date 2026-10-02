@@ -114,6 +114,7 @@ export const SessionEventType = {
   SystemMessage: "system_message",
   ModelRequest: "model_request",
   ModelSelected: "model_selected",
+  RoleBindingChanged: "role_binding_changed",
   ModelStreaming: "model_streaming",
   StreamingToolLedgerUpdated: "streaming_tool_ledger_updated",
   StreamRecoveryAnchorCreated: "stream_recovery_anchor_created",
@@ -648,6 +649,10 @@ export interface SessionModeChangedPayload {
   toolCallId?: ToolCallId;
 }
 
+export interface RoleBindingChangedPayload {
+  roleBinding: import("@zcode/shared").RoleBinding;
+}
+
 export type TargetCompletionVerificationStatus =
   | "started"
   | "completed"
@@ -1179,6 +1184,7 @@ export type SessionEventPayload =
   | SessionCompactedPayload
   | SessionTitleUpdatedPayload
   | SessionModeChangedPayload
+  | RoleBindingChangedPayload
   | TurnStartedPayload
   | TurnInputReceivedPayload
   | TurnSteerQueuedPayload

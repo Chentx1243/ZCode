@@ -1127,6 +1127,11 @@ export interface SessionStorePort {
   }): Promise<MessageWithParts | null>;
   messages(input: { sessionID: SessionId }): Promise<MessageWithParts[]>;
   saveSessionEntry?(input: SessionEntryInfo): Promise<void>;
+  /** 角色快照与待发布事件同一事务提交；不支持该原子边界的宿主必须拒绝切换。 */
+  commitRoleBinding?(input: {
+    binding: SessionEntryInfo;
+    pending: SessionEntryInfo;
+  }): Promise<void>;
   sessionEntries?(input: {
     sessionID: SessionId;
     type?: SessionEntryType | string;

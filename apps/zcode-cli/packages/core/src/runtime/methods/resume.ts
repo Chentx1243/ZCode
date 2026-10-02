@@ -1,3 +1,8 @@
+import {
+  restoreRoleBinding,
+  restorePendingRoleBinding,
+  flushPendingRoleBinding,
+} from "../role-binding.js";
 import { restorePermissionGrantMarker } from "../helpers/permission-grant-resume.js";
 import { executionStateSchema, resolveExecutionState } from "@zcode/shared";
 import { SESSION_ENTRY_EXECUTION_STATE } from "@zcode/contracts";
@@ -144,6 +149,9 @@ export async function resumeFromStore(
     workingDirectory: this.workingDirectory,
     workspaceRoot: this.workspaceRoot,
   });
+  // 必须在上下文初始化前恢复会话快照，不能读取客户端当前默认或历史身份片段。
+  this.config.roleBinding = await restoreRoleBinding(this.sessionStore, this.sessionId);
+  await restorePendingRoleBinding(this);
   await this.ensureContextInitialized(traceContext);
   const recoveredCompactTimelineCount = await this.recoverInterruptedCompactTimelines(
     messages,
@@ -251,6 +259,7 @@ export async function resumeFromStore(
     traceContext,
   );
   await this.appendEvent(resumedEvent, traceContext);
+  await flushPendingRoleBinding(this, traceContext);
   const sessionStartHookResult = await this.runSessionStartHooks(
     "resume",
     traceContext,

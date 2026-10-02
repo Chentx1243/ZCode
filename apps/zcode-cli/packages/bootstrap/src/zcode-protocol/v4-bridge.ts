@@ -1519,6 +1519,7 @@ export function createConversationV4Gateway(
               )
               ?.reasoning?.levels.map((level) => level.value) ?? [])
           : [],
+        roleBinding: record.app.runtime.getRoleBinding(),
         mode: record.app.getMode(),
         planEnabled: record.app.runtime.getPlanEnabled(),
         ...(record.app.runtime.lastPermissionGrantId

@@ -34,7 +34,15 @@ export interface PluginStoreNavEntry extends WorkspaceNavEntryBase {
   kind: "plugin-store";
 }
 
-export type WorkspaceNavEntry = TaskNavEntry | AutomationsNavEntry | PluginStoreNavEntry;
+export interface RoleManagementNavEntry extends WorkspaceNavEntryBase {
+  kind: "role-management";
+}
+
+export type WorkspaceNavEntry =
+  | TaskNavEntry
+  | AutomationsNavEntry
+  | PluginStoreNavEntry
+  | RoleManagementNavEntry;
 
 export interface TaskNavigationHistory {
   entries: WorkspaceNavEntry[];
@@ -58,6 +66,12 @@ export function isAutomationsNavEntry(entry: WorkspaceNavEntry): entry is Automa
 
 export function isPluginStoreNavEntry(entry: WorkspaceNavEntry): entry is PluginStoreNavEntry {
   return entry.kind === "plugin-store";
+}
+
+export function isRoleManagementNavEntry(
+  entry: WorkspaceNavEntry,
+): entry is RoleManagementNavEntry {
+  return entry.kind === "role-management";
 }
 
 function isSameNavEntry(left: WorkspaceNavEntry, right: WorkspaceNavEntry): boolean {
@@ -145,6 +159,18 @@ export function pushPluginStoreNavEntry(
 ): TaskNavigationHistory {
   return pushEntry(history, {
     kind: "plugin-store",
+    workspacePath,
+    ...(workspaceIdentity ? { workspaceIdentity } : {}),
+  });
+}
+
+export function pushRoleManagementNavEntry(
+  history: TaskNavigationHistory,
+  workspacePath: string,
+  workspaceIdentity?: string,
+): TaskNavigationHistory {
+  return pushEntry(history, {
+    kind: "role-management",
     workspacePath,
     ...(workspaceIdentity ? { workspaceIdentity } : {}),
   });

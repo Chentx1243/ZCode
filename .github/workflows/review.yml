@@ -1,0 +1,26 @@
+name: Review regression
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      # CLI workspace 的运行时 exports 指向 dist，先构建依赖，避免本地旧产物掩盖干净 CI 缺失。
+      - run: pnpm --filter @zcode/bootstrap... build
+      - run: pnpm typecheck
+      # 产物审计测试需要本次 Host bundle，不能读取缺失或上次构建的 out。
+      - run: pnpm --filter @zcode/desktop exec tsup
+      - run: pnpm verify:pre-push
+      - run: pnpm test:review:ui

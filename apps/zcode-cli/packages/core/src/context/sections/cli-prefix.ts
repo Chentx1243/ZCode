@@ -9,7 +9,6 @@ const CLI_PREFIX_PROMPT = "You are ZCode, an interactive coding agent";
 
 export function buildCliPrefixSection(): ContextSection {
   const content = CLI_PREFIX_PROMPT;
-
   return {
     name: "CLI Prefix",
     source: "cli_prefix",

@@ -1,5 +1,8 @@
 import type { IServiceAccessor } from "@zcode/services";
+import { isApiKeyAccess } from "@zcode/provider";
 import {
+  BUILTIN_PROVIDER_TEMPLATE_IDS,
+  BUILTIN_MODEL_PROVIDER_IDS,
   type ProviderFamilyDomain,
   resolveModelProviderFamilyIdByProviderId,
   resolveProviderFamilyDomainFromOAuthProvider,
@@ -24,7 +27,10 @@ function inferProviderFamilyDomainFromSelection(
 }
 
 export async function ensureProviderFamilyDomainMigration(
-  services: Pick<IServiceAccessor, "settingService" | "oauthService" | "modelSelectionService">,
+  services: Pick<
+    IServiceAccessor,
+    "settingService" | "oauthService" | "modelSelectionService" | "providerSettingsService"
+  >,
 ): Promise<void> {
   const settings = await services.settingService.get();
   if (settings.providerFamilyDomain || settings.providerFamilyDomainMigrated) {
@@ -45,6 +51,26 @@ export async function ensureProviderFamilyDomainMigration(
         error,
       });
     }
+  }
+
+  if (!inferredDomain) {
+    // 旧登录流程只保存 API Key；运行域为空时模型选择投影可能隐藏已保存的提供方，需从设置视图恢复。
+    const configuredProviders = (await services.providerSettingsService.getView()).providers.filter(
+      (provider) =>
+        provider.enabled &&
+        isApiKeyAccess(provider.effectiveConfig.access) &&
+        Boolean(provider.effectiveConfig.access.apiKey?.trim()),
+    );
+    inferredDomain = inferProviderFamilyDomainFromSelection(
+      configuredProviders.map((provider) => ({
+        providerId:
+          provider.templateId === BUILTIN_PROVIDER_TEMPLATE_IDS.bigmodel
+            ? BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan
+            : provider.templateId === BUILTIN_PROVIDER_TEMPLATE_IDS.zai
+              ? BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
+              : provider.providerId,
+      })),
+    );
   }
 
   if (!inferredDomain && selectableProviders?.length === 0) {

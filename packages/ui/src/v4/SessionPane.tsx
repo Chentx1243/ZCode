@@ -1,3 +1,5 @@
+import { rolePresetToBinding } from "@/lib/rolePresets.js";
+import { useRolePresets } from "@/hooks/useRolePresets.js";
 import { resolveSelectionSideInheritedModel } from "@/lib/selectionSideInheritedModel.js";
 import { useStartPlanRecommendation } from "@/hooks/useStartPlanRecommendation.js";
 import type { SessionCreateSource } from "@zcode/shared";
@@ -23,6 +25,7 @@ import {
   TID_V4_SESSION_PANE,
   testId,
   ZCODE_AGENT_PROVIDER,
+  type RoleBinding,
 } from "@zcode/shared";
 import type {
   ConversationShareAccessMode,
@@ -99,6 +102,7 @@ import {
 import { useDraftSessionPrewarm } from "@/v4/composer/useDraftSessionPrewarm.js";
 import { projectSessionConfigToTaskConfigOptions } from "@/v4/composer/sessionConfigTaskCache.js";
 import { useDraftRuntimeRebuildGate } from "@/v4/composer/useDraftRuntimeRebuildGate.js";
+import { resolveComposerRoleId } from "@/v4/composer/draftWorkspaceDefaults.js";
 import { useDraftModelReadinessGate } from "@/v4/composer/useDraftModelReadinessGate.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
@@ -718,6 +722,7 @@ export function SessionPane({
     supportedArtifactTypes: [],
   });
   const [sharePreflightVersion, setSharePreflightVersion] = useState(0);
+  const [draftRoleSelectionVersion, setDraftRoleSelectionVersion] = useState(0);
   const selectedShareTurnFingerprints = useMemo(
     () =>
       new Map(
@@ -1244,6 +1249,7 @@ export function SessionPane({
     resolveInitialDraftConfig,
     handleDraftSelectModel,
     handleDraftSelectThought,
+    handleDraftSelectRole,
     handleDraftSwitchMode,
     promoteComposerDraft,
     captureAcceptedModelSelection,
@@ -2278,11 +2284,31 @@ export function SessionPane({
   // ── 草稿态 v4 draft session 预热（m5）──
   // pane 未绑定会话时后台建 phase=draft 会话作预热载体：配置写 CAS 直达、首发复用。
   // 对外绑定语义不变（shell activeTaskId 仍 null），预热会话只是 pane 内部 effective 订阅目标。
+  const {
+    roles: rolePresets,
+    selectedRoleId: defaultRoleId,
+    roleGeneration,
+    loadError: roleLoadError,
+  } = useRolePresets();
+  useEffect(() => {
+    // 存储恢复失败不阻断新任务；保留错误提示和原资料，binding 解析回退官方。
+    if (roleLoadError && !sessionId) toast(intl.formatMessage({ id: "roles.loadError" }));
+  }, [roleLoadError, sessionId, intl]);
+  const roleOptions = useMemo(
+    () =>
+      rolePresets.map((role) => ({
+        id: role.id,
+        name: role.name,
+        binding: rolePresetToBinding(role),
+      })),
+    [rolePresets],
+  );
   const { binding: prewarmBinding } = useDraftSessionPrewarm({
     enabled: sessionId === null && draftAgentStartupAllowed,
     workspaceKey,
     paneId,
-    invalidationVersion: draftRuntimeInvalidationVersion,
+    invalidationVersion:
+      draftRuntimeInvalidationVersion + roleGeneration + draftRoleSelectionVersion,
     // SessionDataLayer 来自 workspace connection registry：同 transport generation 的 pane/remount
     // 共享 identity；provider wrapper 重建产生的新 sendCommand 函数不能误判为 transport 换代。
     transportIdentity: layer,
@@ -3352,6 +3378,14 @@ export function SessionPane({
       const projectedConfig =
         snapshotRef.current?.sessionId === targetSessionId ? snapshotRef.current.config : null;
 
+      // 默认变更会重建未提交预热。旧 ACK 或旧 Host 不得让首条输入静默使用错误角色。
+      if (
+        JSON.stringify(desiredConfig.roleBinding) !==
+        JSON.stringify(projectedConfig?.roleBinding ?? { kind: "official" })
+      ) {
+        throw new Error(intl.formatMessage({ id: "roles.draftRoleNotReady" }));
+      }
+
       const requireAcceptedConfigAck = (type: CommandType, ack: CommandAck | null) => {
         if (
           ack &&
@@ -3376,7 +3410,7 @@ export function SessionPane({
         requireAcceptedConfigAck("setFollowupMode", ack);
       }
     },
-    [appFollowupMode, dispatchConfigCas, draftConfigRef],
+    [appFollowupMode, dispatchConfigCas, draftConfigRef, intl],
   );
   ensureDraftPrewarmConfigBeforeSendRef.current = ensureDraftPrewarmConfigBeforeSend;
 
@@ -3423,6 +3457,32 @@ export function SessionPane({
       handleDraftSelectModel(resolvedProvider, model);
     },
     [draftConfigRef, handleDraftSelectModel],
+  );
+
+  const handleSelectRole = useCallback(
+    async (roleBinding: RoleBinding) => {
+      if (!sessionId) {
+        handleDraftSelectRole(roleBinding);
+        setDraftRoleSelectionVersion((version) => version + 1);
+        return;
+      }
+      if (!snapshot || snapshot.control.phase === "running" || snapshot.queue.items.length > 0) {
+        toast(intl.formatMessage({ id: "roles.busyCannotSwitch" }));
+        return;
+      }
+      try {
+        const ack = await configCommandBarrier.enqueue(() =>
+          dispatchConfigCas("switchRoleBinding", { roleBinding }, { targetSessionId: sessionId }),
+        );
+        if (!ack || !["accepted", "duplicate", "noop"].includes(ack.status)) {
+          toast(intl.formatMessage({ id: "roles.switchFailed" }));
+        }
+      } catch (error) {
+        logger.warn("[v4-pane] role switch failed", { error: String(error), sessionId });
+        toast(intl.formatMessage({ id: "roles.switchFailed" }));
+      }
+    },
+    [configCommandBarrier, dispatchConfigCas, handleDraftSelectRole, intl, sessionId, snapshot],
   );
 
   const handleSelectThought = useCallback(
@@ -4363,9 +4423,29 @@ export function SessionPane({
 
   // subagent 右侧 child tab 是观察视图；复用普通 SessionPane 时
   // 若仍创建 composer，会让用户误以为可以直接向 child session 继续输入。
+  const activeRoleBinding = sessionId ? snapshot?.config.roleBinding : draftConfig.roleBinding;
+  const activeRoleId = resolveComposerRoleId({
+    roleBinding: activeRoleBinding,
+    sessionId,
+    defaultRoleId,
+  });
+  const activeRoleName =
+    activeRoleBinding?.kind === "custom"
+      ? activeRoleBinding.name
+      : roleOptions.find((role) => role.id === activeRoleId)?.name;
+  const roleSwitchLocked = Boolean(
+    connecting ||
+    draftRuntimeRebuilding ||
+    (sessionId &&
+      (!snapshot || snapshot.control.phase === "running" || snapshot.queue.items.length > 0)),
+  );
   const composerNode = readOnly ? null : (
     <ConversationComposer
       key="conversation-composer"
+      roleOptions={roleOptions}
+      selectedRoleId={activeRoleId}
+      selectedRoleName={activeRoleName}
+      roleSelectionDisabled={roleSwitchLocked}
       // Snapshot 仍服务用量、路由与运行态；工具栏的 mode/model 只读下方 Composer Draft。
       snapshot={snapshot}
       sessionId={sessionId}
@@ -4412,6 +4492,7 @@ export function SessionPane({
       onComposerRestoreApplied={handleComposerRestoreApplied}
       onStop={handleStopFromButton}
       onSelectModel={handleSelectModel}
+      onSelectRole={handleSelectRole}
       onSelectThought={handleSelectThought}
       onSwitchMode={handleSwitchMode}
       onOpenRunningBackgroundWorks={

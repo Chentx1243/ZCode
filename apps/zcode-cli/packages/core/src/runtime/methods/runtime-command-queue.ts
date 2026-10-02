@@ -1,4 +1,5 @@
 import { traceContextToLogContext } from "../deps.js";
+import { flushPendingRoleBinding } from "../role-binding.js";
 import type { RuntimeCommand, TaskNotificationRuntimeCommand } from "../command-queue.js";
 import { uuidv7 } from "@zcode/shared";
 import type { AgentRuntimeInternal } from "../internal.js";
@@ -35,10 +36,14 @@ export function enqueueRuntimeCommand(this: AgentRuntimeInternal, command: Runti
 }
 
 export async function drainRuntimeCommandQueue(this: AgentRuntimeInternal): Promise<void> {
-  if (this.runtimeCommandDrainActive) return;
+  if (this.runtimeCommandDrainActive || this.roleBindingMutationInProgress) return;
 
   this.runtimeCommandDrainActive = true;
   try {
+    if (this.pendingRoleBindingEvent) {
+      // 后台通知也会启动模型轮，必须与前台输入使用同一个角色提交恢复屏障。
+      if (!(await flushPendingRoleBinding(this, this.rootTraceContext))) return;
+    }
     let commands: readonly RuntimeCommand[];
     // 将同批后台通知合并到一个模型轮，避免每条通知都单独发起请求。
     while ((commands = dequeueNextRunnableBatch.call(this)).length > 0) {
@@ -100,6 +105,7 @@ function runtimeCommandInputId(command: RuntimeCommand): string | undefined {
 export function hasActiveOrQueuedTurnWork(this: AgentRuntimeInternal): boolean {
   return (
     this.foregroundPromotionLease !== undefined ||
+    this.roleBindingMutationInProgress === true ||
     this.activeForegroundExecution !== undefined ||
     this.runtimeCommandDrainActive ||
     this.runtimeCommandQueue.hasPending() ||

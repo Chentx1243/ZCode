@@ -1,3 +1,4 @@
+import type { RoleBinding } from "@zcode/shared";
 import type {
   CollaborationMode,
   Model,
@@ -65,6 +66,9 @@ import type {
 } from "./types.js";
 
 export interface AgentRuntimeCoreMethods {
+  bindInitialRole(binding: RoleBinding): void;
+  getRoleBinding(): RoleBinding;
+  switchRoleBinding(binding: RoleBinding, traceContext: TraceContext): Promise<void>;
   updateConfig(
     patch: Pick<AgentRuntimeConfig, "mode" | "planEnabled" | "language" | "outputStyle">,
   ): void;

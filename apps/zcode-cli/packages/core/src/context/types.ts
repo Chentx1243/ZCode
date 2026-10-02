@@ -1,3 +1,4 @@
+import type { RoleBinding } from "@zcode/shared";
 // ============================================================
 // Context Builder Types
 // ============================================================
@@ -122,6 +123,7 @@ export interface ContextBuilderConfig {
    */
   workflowActor?: WorkflowActorContext;
   language?: string;
+  roleBinding?: RoleBinding;
   outputStyle?: OutputStylePromptConfig;
   compact?: AutoCompactPolicyConfig;
   guidanceToolNames?: readonly string[];

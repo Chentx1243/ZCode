@@ -193,7 +193,7 @@ export const PlatformChannels = {
   ListWSLDistros: "zcode:list-wsl-distros",
   /** Renderer → Main：列出当前可连接的 Docker 容器 */
   ListDockerContainers: "zcode:list-docker-containers",
-  /** Renderer → Main：列出 SSH config 里可用于快速填表的 alias */
+  /** Renderer → Main：列出当前机器 SSH config 中可用于快速填表的 alias */
   ListSSHConfigAliases: "zcode:list-ssh-config-aliases",
   /** Renderer → Main：从用户目录加载 CLI MCP 配置 */
   LoadMcpFromUserDirectory: "zcode:load-mcp-from-user-directory",

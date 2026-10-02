@@ -8,6 +8,7 @@ import {
   type OAuthProviderId,
   type OAuthStateRegistration,
   PlatformChannels,
+  ZCODE_PRODUCT_FLAVOR,
 } from "@zcode/shared";
 import {
   extractWorkspaceOpenPath,
@@ -402,6 +403,8 @@ export function registerDeepLinkProtocol(
   },
   options: { iconPath?: string } = {},
 ) {
+  // DexCode 不占用官方 OAuth 回跳协议；使用独立 API key 登录。
+  if (ZCODE_PRODUCT_FLAVOR === "dexcode") return;
   const scheme = "zcode";
 
   if (process.defaultApp && process.argv.length >= 2) {

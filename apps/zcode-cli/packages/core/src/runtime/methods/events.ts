@@ -1,3 +1,4 @@
+import { buildRoleBindingEntry, flushPendingRoleBinding } from "../role-binding.js";
 import type { WorkspaceId } from "@zcode/contracts";
 import { buildExecutionStateEntry, readRuntimeExecutionState } from "../execution-state.js";
 import {
@@ -83,6 +84,12 @@ export async function appendEvent(
   event: SessionEvent,
   traceContext: TraceContext,
 ): Promise<void> {
+  if (this.pendingRoleBindingEvent && event.id !== this.pendingRoleBindingEvent.id) {
+    // 后续生命周期事件也不能越过未发布角色，保证原 seq 重试仍处在正确事件顺序。
+    if (!(await flushPendingRoleBinding(this, traceContext))) {
+      throw new Error("Role binding delivery must recover before subsequent events");
+    }
+  }
   // live sink 以前拿到的是 createSessionEvent 默认的 sequenceNumber=0，
   // 而 replay/read 路径拿到的是 eventStore 补号后的事件，导致同一 session 有两套顺序事实。
   // 这里只发布已落库事件，让 live、replay、snapshot 的 eventSeq 全部来自同一个 event store。
@@ -530,10 +537,12 @@ export async function notifyEventSinks(
   event: SessionEvent,
   traceContext: TraceContext,
 ): Promise<void> {
+  const failures: unknown[] = [];
   for (const sink of this.eventSinks) {
     try {
       await sink.onSessionEvent(event);
     } catch (error) {
+      failures.push(error);
       this.logger?.warn("Session event sink failed", {
         ...traceContextToLogContext(traceContext),
         errorMessage: error instanceof Error ? error.message : String(error),
@@ -543,6 +552,10 @@ export async function notifyEventSinks(
         status: "failed",
       });
     }
+  }
+  // 角色同步失败必须保留 outbox；吞掉异常会把未更新的投影误判为交付完成。
+  if (event.type === SessionEventType.RoleBindingChanged && failures.length > 0) {
+    throw new AggregateError(failures, "Role binding event delivery failed");
   }
 }
 
@@ -611,6 +624,9 @@ export async function ensureSessionPersisted(
     phase = "session_execution_state";
     await this.sessionStore.saveSessionEntry?.(
       buildExecutionStateEntry(this.sessionId, readRuntimeExecutionState(this)),
+    );
+    await this.sessionStore.saveSessionEntry?.(
+      buildRoleBindingEntry(this.sessionId, this.getRoleBinding()),
     );
     this.sessionPersisted = true;
     this.logger?.debug("Session persisted", {

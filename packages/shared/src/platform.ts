@@ -613,6 +613,9 @@ export interface IPlatformService {
   /** 列出当前机器 SSH config 中可用于快速填表的 alias */
   listSSHConfigAliases(): Promise<SSHConfigAliasOption[]>;
 
+  /** 列出本机已安装字体的 family 名（外观设置字体选择）；无系统枚举能力的环境返回预设列表 */
+  listSystemFonts(): Promise<string[]>;
+
   /** 读取宿主环境中的原生 MCP 用户目录配置；手机远控通过已连接桌面 host 转发。 */
   loadMcpFromUserDirectory?(
     payload?: LoadCliMcpFromUserDirectoryRequest,

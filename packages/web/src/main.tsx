@@ -218,6 +218,22 @@ function createWebPlatform(): IPlatformService {
     listWSLDistros: () => Promise.resolve([]),
     listDockerContainers: () => Promise.resolve([]),
     listSSHConfigAliases: () => Promise.resolve([]),
+    // 浏览器 Local Font Access 需要授权且移动端不可用；字体选择降级为常见字体预设，
+    // 选中但未安装的字体由 CSS 字体栈回退到默认栈。
+    listSystemFonts: () =>
+      Promise.resolve([
+        "Source Han Sans SC",
+        "Microsoft YaHei",
+        "PingFang SC",
+        "SimHei",
+        "SimSun",
+        "Noto Sans CJK SC",
+        "Segoe UI",
+        "Inter",
+        "Arial",
+        "Georgia",
+        "Times New Roman",
+      ]),
     loadMcpFromUserDirectory: () => Promise.resolve({ servers: [] }),
     saveMcpToUserDirectory: () =>
       Promise.resolve({

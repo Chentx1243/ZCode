@@ -138,7 +138,8 @@ export default defineConfig([
   {
     name: "main",
     entry: {
-      "main/index": "src/main/index.ts",
+      "main/index": "src/main/desktopEarlyProductIsolationBootstrap.ts",
+      "main/application": "src/main/index.ts",
       "main/browserWebmRecorder": "src/main/browserView/electronBrowserWebmRecorder.ts",
       "main/zcodeDataSizeWorker": "src/main/zcodeDataSizeWorker.ts",
       // 资源管理器「存储」tab 的扫描 Worker：main 持有 StorageService，遍历放独立线程，供 new Worker(new URL()) 解析。
@@ -221,6 +222,9 @@ export default defineConfig([
       "@zcode/shared",
       "@zcode/rpc",
       "@zcode/services",
+      // services 子路径导出同样指向 workspace TypeScript 源码；根包规则不会覆盖该子路径。
+      // Host 的 storage-startup import 若留作外部模块，Electron Node 会解析 .ts 并在 #src/*.js 目标处退出。
+      "@zcode/services/storage-startup",
       "@zcode/client",
       "@zcode/provider",
       "@zcode/provider-node",

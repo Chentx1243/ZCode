@@ -43,6 +43,7 @@ import {
   testId,
   type PlanIdentitySnapshot,
   type ZCodeProvider,
+  type RoleBinding,
 } from "@zcode/shared";
 import type {
   AttachmentRef,
@@ -378,6 +379,10 @@ interface ConversationComposerProps {
    * 切换器，渲染在编辑器上方（旧 ChatViewComposer contextHeaderContent 同位）。
    * 仅草稿态由宿主下发；会话建立后为空。
    */
+  roleOptions: readonly { id: string; name: string; binding: RoleBinding }[];
+  selectedRoleId: string;
+  selectedRoleName?: string;
+  roleSelectionDisabled?: boolean;
   contextHeader?: ReactNode;
   /** 居中草稿布局（旧 shouldUseCenteredDraftChatLayout）：收窄 max-w-2xl、去 sticky。 */
   centered?: boolean;
@@ -426,6 +431,7 @@ interface ConversationComposerProps {
     model: string,
     sourceModel: ModelSelectionSource | null,
   ) => void;
+  onSelectRole: (binding: RoleBinding) => void;
   /** 选中思考深度；同时带上用户操作时看到的模型，避免异步回流后把 thought 归到另一模型。 */
   onSelectThought: (thought: string, modelContext: { provider: string; model: string }) => void;
   onSwitchMode: (mode: string) => void;
@@ -493,6 +499,10 @@ function ConversationComposerImpl({
   submissionReady = true,
   createSubmissionFromComposer,
   telemetryDraftConfig,
+  roleOptions,
+  selectedRoleId,
+  selectedRoleName,
+  roleSelectionDisabled,
   contextHeader,
   centered = false,
   blockingRequestId = null,
@@ -516,6 +526,7 @@ function ConversationComposerImpl({
   onDraftStateChange,
   onStop,
   onSelectModel,
+  onSelectRole,
   onSelectThought,
   onSwitchMode,
   onOpenRunningBackgroundWorks,
@@ -2055,6 +2066,11 @@ function ConversationComposerImpl({
             activeConfigPicker={activeConfigPicker}
             onConfigPickerOpenChange={handleConfigPickerOpenChange}
             onSelectModel={handleSelectModelTrace}
+            roleOptions={roleOptions}
+            selectedRoleId={selectedRoleId}
+            selectedRoleName={selectedRoleName}
+            roleSelectionDisabled={roleSelectionDisabled}
+            onSelectRole={onSelectRole}
             onSelectThought={onSelectThought}
             onSwitchMode={onSwitchMode}
             onRecoverCustomModelSelection={onRecoverCustomModelSelection}

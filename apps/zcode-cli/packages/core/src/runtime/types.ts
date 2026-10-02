@@ -1,3 +1,4 @@
+import type { RoleBinding } from "@zcode/shared";
 import type { RuntimeInputPresentation } from "@zcode/contracts";
 /* eslint-disable max-lines -- Runtime 类型集中承载 core/runtime 对外结构，拆分需要单独迁移。 */
 import { PermissionService, ToolScheduler } from "./deps.js";
@@ -231,6 +232,7 @@ export interface AgentRuntimeConfig {
     userInstructions?: ResolvedUserInstructions;
   };
   language?: string;
+  roleBinding?: RoleBinding;
   outputStyle?: OutputStylePromptConfig;
   agentName?: string; // Default: "zcode-agent"
   workingDirectory?: string; // Required for context builder

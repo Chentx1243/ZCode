@@ -26,6 +26,8 @@ export type ModelPropertiesInput = ModelProperties;
 export interface ModelOptions {
   reasoningLevel?: string;
   maxOutputTokens?: number;
+  /** 角色级采样温度；缺省不设置，adapter 边界移除该字段，由服务端默认值决定。 */
+  temperature?: number;
 }
 
 export interface ModelRequest {

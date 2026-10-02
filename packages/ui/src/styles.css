@@ -54,8 +54,24 @@ body,
   background: transparent !important;
 }
 
+/* 内置思源黑体（Source Han Sans SC 可变字体，SIL OFL 1.1，许可文本见同目录 SourceHanSansSC-OFL.txt）。
+ * local() 优先命中本机已安装的思源黑体，未安装时才加载打包文件；仅在该字体被选用时浏览器才会取用。 */
+@font-face {
+  font-family: "Source Han Sans SC";
+  src:
+    local("Source Han Sans SC"), local("思源黑体 SC"),
+    url("./assets/fonts/SourceHanSansSC-VF.otf") format("opentype-variations");
+  font-weight: 200 900;
+  font-display: swap;
+}
+
 :root {
   --ui-font-size: 14px;
+  /* 字体选择设置的基准栈；运行时由 applyUiFontFamily 在 documentElement 内联覆盖。
+   * 逐项复制 Tailwind 默认 sans（含 emoji 字体）而不是引用 --font-sans，"跟随系统"时视觉零变化。 */
+  --app-font-family:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
 }
 
 body {
@@ -135,6 +151,10 @@ body {
 /* === 主题变量 === */
 
 @theme {
+  /* 界面字体族跟随字体选择设置（--app-font-family，见上方 :root 与 lib/uiFontFamily.ts）。
+   * Tailwind 的 --default-font-family 引用本值，preflight 的 html 字体与 font-sans utility 一并生效；
+   * 代码、Diff、终端仍走下方 --font-mono，不受字体选择影响。 */
+  --font-sans: var(--app-font-family);
   /* Windows 的 Consolas 不含中文字形，Tailwind 默认栈最终会让中文落到宋体。
    * 保留各平台西文等宽字体，并在通用 monospace 前显式加入各平台 CJK 无衬线字体。 */
   --font-mono:

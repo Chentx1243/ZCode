@@ -22,6 +22,7 @@ import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import type { CodePreviewSettings } from "@/store/index.js";
 import { THEME_MODES } from "@/settings/settingsPageConfig.js";
 import { MAX_UI_FONT_SIZE_PX, MIN_UI_FONT_SIZE_PX } from "@/lib/uiFontSize.js";
+import { FontFamilyPicker } from "@/settings/FontFamilyPicker.js";
 
 function FontSizeInput({
   value,
@@ -83,6 +84,8 @@ export function AppearanceSectionContent({
   setCodePreviewSettings,
   theme,
   setTheme,
+  uiFontFamily,
+  setUiFontFamily,
   uiFontSizePx,
   setUiFontSizePx,
 }: {
@@ -90,6 +93,8 @@ export function AppearanceSectionContent({
   setCodePreviewSettings: (settings: Partial<CodePreviewSettings>) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  uiFontFamily: string;
+  setUiFontFamily: (fontFamily: string) => void;
   uiFontSizePx: number;
   setUiFontSizePx: (fontSizePx: number) => void;
 }) {
@@ -134,6 +139,15 @@ export function AppearanceSectionContent({
                     ))}
                   </SelectContent>
                 </Select>
+              }
+            />
+            <SettingsRow
+              label={intl.formatMessage({ id: "settings.uiFontFamily" })}
+              description={intl.formatMessage({
+                id: "settings.uiFontFamilyDescription",
+              })}
+              control={
+                <FontFamilyPicker value={uiFontFamily} onChange={setUiFontFamily} />
               }
             />
             <SettingsRow
