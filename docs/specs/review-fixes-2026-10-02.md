@@ -19,11 +19,13 @@
 | P2 .zcode 未忽略                | 确认                                                           | 添加根目录忽略规则，保留目录与用户数据                                                        |
 | 字体资源约 31 MB                | 属于已有 spec 的有意取舍                                       | 保留字体和 OFL；未声称降低安装体积                                                            |
 
-## 尚未修改的设计问题
+## 角色切换事务问题（后续已修复）
 
-`runtime/role-binding.ts` 的角色切换先保存 binding entry、再修改配置、最后 appendEvent。最后一步失败可能导致 runtime、entry 和 UI 投影不同步。报告对此项的描述属实。
+原实现的 `runtime/role-binding.ts` 角色切换先保存 binding entry、再修改配置、最后 appendEvent。最后一步失败可能导致 runtime、entry 和 UI 投影不同步。报告对此项的描述属实，故障注入复现了提交后失败及同值重试不补事件。
 
-`appendEvent` 内部还分为 eventStore append、durable event 持久化和 sink 通知，单纯调换调用顺序或盲目回滚会产生其他部分提交。根据 AGENTS.md「发现设计缺陷时先与用户对齐」，已询问是否扩大为存储事务改造；本次局部修复暂不改动该跨存储设计。
+进一步复核：`RoleBindingChanged` 在通用 durable event 阶段没有额外数据库写入，普通 sink 异常原先会被吞掉，因此也可能命令成功而投影未更新。单纯调整顺序或盲目回滚不能覆盖已发布事件。首批局部修复提交 `ebc7a9e` 将其保留为待办；用户后续确认方案并要求修复后，已补齐独立上下文准备、SQLite binding/outbox 原子提交、稳定事件 ID 恢复、输入及后台模型轮屏障、冷恢复及 V4 投影失败重放。规则和事件图见 `role-management.md` 的角色切换提交与恢复章节。
+
+后续验证：新增 9 项定向测试通过，覆盖上下文准备/事务失败、append/sink/清理失败、并发重试及延迟提交时的输入准入、冷恢复、真实 SQLite 回滚、V4 桌面与手机恢复订阅，以及实际 Runtime 向模拟 provider 发出的下一次请求和历史保留。此验证不代表真实模型服务或真实手机网络已通过。根类型检查及 CLI 依赖构建通过；根 Lint 0 错误 / 69 条警告，额外 CLI 包 Lint 0 错误；架构 0 违规。原有隔离浏览器交互回归通过。
 
 ## 本次验证
 
@@ -35,10 +37,18 @@
 - 本机验证工具链：Node 24.18.0 / pnpm 10.33.2；mise 与新增 CI 使用 Node 24.14.0。
 - CI workflow 已添加，远端尚未触发；不将本地验证表述为 GitHub CI 已通过。
 
-## 覆盖安装验证
+## 首批局部修复覆盖安装验证
 
 - `pnpm bundle:dexcode` 本次退出 0，Windows x64 安装器 157.2 MiB，运行依赖闭包和 500 MiB 体积门禁通过；版本沿用根 package.json 的 3.14.3，内容为本次修复后的工作区构建。
 - 已覆盖安装到实时核实的 `D:\SOFTWARE\dexcode`，安装器退出 0；已安装 EXE 和 app.asar 的 SHA256 与本次 win-unpacked 产物一致。
 - 两次升级后启动均无需重新登录，官方与 DexCode 预设可见；角色 localStorage 原始记录哈希与安装前一致，现有默认角色及手动文本未改写。
 - Provider 配置哈希不变；官方协议和右键注册的结构与值均保持原样。
 - 调试启动验证后关闭调试实例，使用正常参数打开 `D:\project\cyberYou\ZCode`；敏感配置备份仅位于已忽略的 `.local-debug/`，未输出内容。
+
+## 事务修复包覆盖安装验证（2026-10-03）
+
+- 最终门禁 75 项测试通过（UI 68、Desktop 7）；浏览器交互回归 1 项通过；类型检查、CLI 依赖构建、根及额外 CLI Lint、架构检查、变更格式检查通过。根 Lint 69 条既有警告、0 错误。
+- 新一轮 `pnpm bundle:dexcode` 退出 0，运行依赖闭包及体积门禁通过；新安装器 157.2 MiB，版本仍为 3.14.3，包含事务修复源码。
+- 重新核实安装目录与 allusers 卸载注册，备份现有 Provider/凭据和 Local Storage 后覆盖安装；安装器退出 0。EXE 和 app.asar 哈希与新 win-unpacked 一致，Provider 配置及官方协议/右键注册保持原样。
+- 两次独立升级后启动均无登录门禁，角色列表与原始预设记录哈希和本次安装前基线一致。最后关闭 CDP 实例，以正常参数打开原工作区，窗口已显示，9239 调试端口关闭。
+- 测试、截图及敏感备份只保存在已忽略的 `.local-debug/role-transaction/` 和 `.local-debug/review-ui/`；未纳入提交，未调用真实模型服务。

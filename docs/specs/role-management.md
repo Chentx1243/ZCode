@@ -1,5 +1,31 @@
 # 角色管理
 
+## 角色切换提交与恢复（2026-10-02）
+
+Runtime 是角色唯一业务所有者；存储与投影是其持久化及传播边界。切换保持现有 busy/queued、owner/lease 与工作区隔离规则。先在独立 config/消息历史中构建新上下文，准备失败不改变任何已接受状态；SQLite 通过 SessionStorePort 专用接口将稳定 binding entry 和待发布事件 entry 在同一事务提交，无 schema migration，旧宿主未提供原子接口时明确拒绝切换。
+
+数据库提交是持久化提交点；提交后同步安装准备好的上下文，再发布事件。发布失败保留待发布事件，不回滚已提交角色、不返回“角色未改变”的错误。Runtime 在下一次同值/新值切换及输入准入时先补发；补发未成功时拒绝输入。冷恢复先读取绑定与待发布记录，再发布到已有投影链路。角色事件 sink 失败须向发布者报告（其他事件维持现有容错规则），事件按稳定 ID 幂等追加并复用原序号；客户端传播继续沿 Desktop continuous 和 Web remote replayable 链路，不新增 Main/Host 业务状态。已提交角色的通知失败只记录同步异常，命令不伪装成持久化失败；同值命令先修复待同步状态，再返回 noop。
+
+待发布记录使用会话内稳定 ID，只存最新切换；每次新切换前先完成上一条发布。发布完成后清空记录；清空失败可重复发送同一事件，投影消费须按 eventSeq 去重。冷恢复不复用旧进程 eventSeq；重新分配该进程序号。旧会话无待发布记录时按既有 binding fallback 恢复，不读取客户端最新默认。
+
+```mermaid
+sequenceDiagram
+  participant R as Runtime owner
+  participant D as SQLite adapter
+  participant P as 现有事件与投影链路
+  R->>R: 检查空闲并阻止输入，独立准备上下文
+  R->>D: 原子提交 binding + pending event
+  R->>R: 安装已准备的角色与上下文
+  R->>P: 按稳定 ID 发布
+  alt 发布成功
+    R->>D: 清空 pending
+  else 发布失败
+    R->>R: 保留 pending，下一次操作先修复
+  end
+```
+
+验收：准备失败和事务失败完全保持旧状态；提交后 append/sink 失败不丢事件；同值重试可修复且不产生重复序号；下一条输入不能越过未完成发布；清空失败可重试；冷恢复采用新绑定并补发；连续切换不能颠倒事件顺序；Desktop/手机通过现有投影和重放得到一致角色。模型验证使用模拟 provider，不声称真实远控已验证。
+
 ## 版本预置 DexCode（2026-10-01）
 
 角色默认定义由共享 UI 的 rolePresets 唯一提供，不依赖开发者 localStorage 或 artifacts。全新安装及空存储的 Desktop/Web 均按“ZCode 官方、DexCode”顺序显示两项；移除通用助手和写作伙伴的默认定义。中英文界面均使用同一提示词，简介提供英文翻译。

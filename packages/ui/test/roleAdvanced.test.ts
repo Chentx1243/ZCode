@@ -209,6 +209,8 @@ test("advanced session switching is idle-only, atomic on storage failure and ide
   const events: unknown[] = [];
   const runtime = {
     sessionId: "session",
+    eventStore: { getEvents: async () => events },
+    notifyEventSinks: async () => {},
     config: { roleBinding: roleBindingSchema.parse({ kind: "official" }) },
     contextInitialized: false,
     contextBuilder: null,
@@ -216,9 +218,12 @@ test("advanced session switching is idle-only, atomic on storage failure and ide
     roleBindingMutationInProgress: false,
     hasActiveOrQueuedTurnWork: () => busy,
     sessionStore: {
-      saveSessionEntry: async (entry: unknown) => {
+      commitRoleBinding: async ({ binding }: { binding: unknown }) => {
         if (fail) throw new Error("quota");
-        entries.push(entry);
+        entries.push(binding);
+      },
+      saveSessionEntry: async (entry: unknown) => {
+        void entry;
       },
     },
     getRoleBinding: () => getRoleBinding.call(runtime as never),

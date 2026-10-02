@@ -118,6 +118,8 @@ export interface AgentRuntimeInternal
   sessionPersisted: boolean;
   /** 在保存并发布角色配置期间拒绝并发首发，避免新输入跨越身份边界。 */
   roleBindingMutationInProgress?: boolean;
+  /** 已提交但尚未完成事件同步的角色；新输入先修复，不回滚持久化事实。 */
+  pendingRoleBindingEvent?: import("@zcode/contracts").SessionEvent;
   needsPlanModeExitReminder: boolean;
   latestConversationMessageId?: MessageId;
   latestAssistantMessageId?: MessageId;

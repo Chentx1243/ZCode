@@ -174,14 +174,15 @@ async function switchRoleBinding(
   const record = requireRecord(host, envelope.sessionId);
   return runSessionModelConfigMutation(record.app, async () => {
     const current = record.app.runtime.getRoleBinding();
-    if (JSON.stringify(current) === JSON.stringify(payload.roleBinding)) {
-      throw new V4CommandNoopError(CONFIG_UNCHANGED);
-    }
     // Runtime 再做一次忙碌守卫，覆盖 UI 发送后新一轮输入已准入的竞态。
     await record.app.runtime.switchRoleBinding(
       payload.roleBinding as RoleBinding,
       record.traceContext,
     );
+    // 同值重试也必须先修复已提交但尚未发布的角色事件，再报告 noop。
+    if (JSON.stringify(current) === JSON.stringify(payload.roleBinding)) {
+      throw new V4CommandNoopError(CONFIG_UNCHANGED);
+    }
     return undefined;
   });
 }

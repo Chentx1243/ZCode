@@ -1,4 +1,5 @@
 import { createChildTraceContext, createQueryId, createTurnId } from "../deps.js";
+import { flushPendingRoleBinding } from "../role-binding.js";
 import type { QueryId, TurnInputIntentMetadata } from "../deps.js";
 import type { PromptRuntimeCommand } from "../command-queue.js";
 import { createRuntimeCommandId } from "../command-queue.js";
@@ -26,6 +27,20 @@ export async function admitPrompt(
   if (this.roleBindingMutationInProgress) {
     // 角色切换持有异步持久化屏障时不接纳输入；Renderer 会在命令完成后重试发送。
     return { kind: "rejected", reason: "no_active_turn" };
+  }
+  if (this.pendingRoleBindingEvent) {
+    // 提交后的投影修复在输入 reservation 之前完成，不能让新 turn 越过角色事件。
+    this.roleBindingMutationInProgress = true;
+    try {
+      if (!(await flushPendingRoleBinding(this, options?.traceContext ?? this.rootTraceContext))) {
+        return { kind: "rejected", reason: "no_active_turn" };
+      }
+    } finally {
+      this.roleBindingMutationInProgress = false;
+      if (!this.pendingRoleBindingEvent && this.runtimeCommandQueue.hasPending()) {
+        void this.drainRuntimeCommandQueue();
+      }
+    }
   }
   const promotionLeaseOnly =
     options?.requireIdle === true &&

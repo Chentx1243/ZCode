@@ -2986,11 +2986,11 @@ function reconcileRecordPersistence(record: ZCodeProtocolSessionRecord): void {
   if (record.app.runtime?.isSessionPersisted?.() === true) record.persistence = "immediate";
 }
 
-export function onSessionEvent(
+export async function onSessionEvent(
   context: ZCodeProtocolAgentServerContext,
   record: ZCodeProtocolSessionRecord,
   event: SessionEvent,
-): void {
+): Promise<void> {
   const computerUseOperationEvent = mapComputerUseOperationEvent(event);
   if (computerUseOperationEvent) {
     try {
@@ -3049,7 +3049,12 @@ export function onSessionEvent(
   observeSessionDebug(record, event);
   // v4 通道：权威事件无条件喂给 v4 投影/发布器——v4 订阅不依赖旧协议的
   // deliveryKind 订阅态，帧节奏由 gateway 按订阅者 profile 自行调度。
-  context.v4Gateway?.ingest(record.app.sessionId, event);
+  if (event.type === SessionEventType.RoleBindingChanged) {
+    // 等待实际投影提交及失败重放，不能将 raw 去重误认为角色已成功同步。
+    await context.v4Gateway?.ingestCommittedRoleBinding(record.app.sessionId, event);
+  } else {
+    context.v4Gateway?.ingest(record.app.sessionId, event);
+  }
   if (!record.deliveryKind) return;
   const deltaInfo = readStreamingDeltaBatchableEvent(event);
   if (deltaInfo && !shouldHideProtocolSessionEvent(record, event)) {
