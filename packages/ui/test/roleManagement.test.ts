@@ -6,6 +6,7 @@ import {
   LEGACY_ROLE_PRESETS_STORAGE_KEY,
 } from "../src/store/roleManagementStore.js";
 import {
+  getSupersededRolePresetFields,
   listRolePresets,
   rolePresetToBinding,
   type RolePresetFields,
@@ -20,6 +21,8 @@ import {
   goForward,
   removeTaskFromHistory,
 } from "../src/lib/taskNavigationHistory.js";
+
+const DEXCODE_PRESET_ID = "04a923fa-2db3-4a85-b456-8ffa17ef86a1";
 
 function memoryStorage() {
   const data = new Map<string, string>();
@@ -70,6 +73,52 @@ test("shipped DexCode exists without local data and carries its advanced prompts
     assert.ok(Object.isFrozen(binding));
     assert.ok(Object.isFrozen(binding.promptOverrides));
   }
+});
+
+test("superseded DexCode overrides fall back to the latest shipped preset", () => {
+  const supersededFields = getSupersededRolePresetFields(DEXCODE_PRESET_ID);
+  // 第一、二版各自的 zh/en 原文都必须触发升级，覆盖旧客户端的保存记录。
+  assert.ok(supersededFields.length >= 4);
+  for (const fields of supersededFields) {
+    for (const locale of ["zh-CN", "en-US"]) {
+      const dex = listRolePresets({ [DEXCODE_PRESET_ID]: fields }, locale)[1]!;
+      assert.match(dex.identityPrompt, /the user’s development assistant/);
+      assert.match(dex.promptOverrides!.progress, /Before your first tool call/);
+      assert.doesNotMatch(dex.identityPrompt, /interactive coding agent/);
+    }
+  }
+});
+
+test("customized DexCode overrides keep precedence over preset upgrades", () => {
+  const [first] = getSupersededRolePresetFields(DEXCODE_PRESET_ID);
+  assert.ok(first);
+  const editedPrompt = { ...first, identityPrompt: `${first.identityPrompt}\n补充一句。` };
+  const withTemperature = { ...first, temperature: 0.5 };
+  for (const fields of [editedPrompt, withTemperature]) {
+    const dex = listRolePresets({ [DEXCODE_PRESET_ID]: fields }, "zh-CN")[1]!;
+    assert.equal(dex.identityPrompt, fields.identityPrompt);
+    if (fields.temperature !== undefined) assert.equal(dex.temperature, 0.5);
+  }
+});
+
+test("stored superseded override upgrades display without rewriting storage", () => {
+  const superseded = getSupersededRolePresetFields(DEXCODE_PRESET_ID);
+  const v2Fields = superseded[2];
+  assert.ok(v2Fields);
+  const raw = JSON.stringify({
+    version: 3,
+    overrides: { [DEXCODE_PRESET_ID]: v2Fields },
+    selectedRoleId: DEXCODE_PRESET_ID,
+  });
+  const storage = memoryStorage();
+  storage.data.set(ROLE_PRESETS_STORAGE_KEY, raw);
+  const store = createRoleManagementStore(() => storage);
+  store.getState().hydrate();
+  assert.equal(store.getState().loadError, null);
+  const dex = listRolePresets(store.getState().overrides, "zh-CN")[1]!;
+  assert.match(dex.identityPrompt, /the user’s development assistant/);
+  assert.equal(store.getState().selectedRoleId, DEXCODE_PRESET_ID);
+  assert.equal(storage.data.get(ROLE_PRESETS_STORAGE_KEY), raw);
 });
 
 test("retired example defaults fall back without losing other local roles or rewriting storage", () => {
@@ -339,9 +388,9 @@ test("role temperature is validated, persisted and projected into the binding sn
   // 保存不带温度的资料即清除配置，回到服务端默认。
   assert.equal(store.getState().updateRole(id, edited).ok, true);
   assert.equal(store.getState().overrides[id]!.temperature, undefined);
-  const cleared = rolePresetToBinding(listRolePresets(store.getState().overrides, "zh-CN").find(
-    (entry) => entry.id === id,
-  )!);
+  const cleared = rolePresetToBinding(
+    listRolePresets(store.getState().overrides, "zh-CN").find((entry) => entry.id === id)!,
+  );
   assert.ok(cleared.kind === "custom");
   assert.equal(cleared.temperature, undefined);
 });

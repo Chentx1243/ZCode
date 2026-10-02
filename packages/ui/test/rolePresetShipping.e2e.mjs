@@ -41,11 +41,11 @@ test(
       await page.getByTestId("role-advanced-toggle").click();
       assert.match(
         await page.getByTestId("role-advanced-progress").inputValue(),
-        /Before the first tool call/,
+        /Before your first tool call/,
       );
       assert.match(
         await page.getByTestId("role-advanced-finalReply").inputValue(),
-        /may not be shown to the user/,
+        /talking to a real person/,
       );
       assert.match(await page.getByTestId("role-advanced-count").innerText(), /4/);
       await page.keyboard.press("Escape");

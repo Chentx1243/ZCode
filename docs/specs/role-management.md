@@ -20,6 +20,16 @@ DexCode 预置内容更新为用户在开发实例中手动调整并实测的第
 
 第二版验证记录（2026-10-02）：roleManagement/roleSwitching/roleAdvanced 单测 26 项通过；`rolePresetShipping.e2e.mjs` 通过（断言已同步第二版文案：身份 `You are DexCode`、四项高级覆盖、advanced-count 4），E2E 前后用户本地覆盖与默认选择完整保留；`pnpm typecheck`、`pnpm lint`（0 错误）、`pnpm architecture:check --changed` 通过。未制作发行包；安装包携带第二版内容由 `rolePresets.ts` 源码定义保证，下次 `pnpm bundle:dexcode` 生效。
 
+### 预置内容第三版与过时覆盖升级（2026-10-02）
+
+DexCode 预置内容更新为用户在隔离开发实例（test 后端）中手动调整并实测的第三版提示词，覆盖记录经 CDP 从运行实例导出后固化。相对第二版变化集中在四项：`identityPrompt` 改为面向新手开发者的 development assistant 定位（proactive、clear well-structured communication）；`expressionStylePrompt` 重写为分级策略（简单问题简短直接、复杂问题先高层概览并按新手开发者对待）并引入回复前自检段落；progress 覆写简化为固定文案格式（首句说明意图，文案严格遵循"调用工具:[核心目的简介，无需描述技术细节]"）；finalReply 覆写从编号清单改为自然语言多段规则（列表仅用于总结性概览及条目格式、对比用表格且前后说明、概念架构可用 Mermaid、禁用「」角引号与箭头符号、控制信息密度、教学式口吻）。`desktop`、`projectInstructions` 覆写与简介、名称、温度（未设置）与第二版一致。中英文界面共用同一提示词，英文简介沿用第二版翻译。
+
+过时覆盖升级规则（新增读取行为，回应"预置更新必须能到达已保存过旧预置的客户端"）：本地覆盖若与任一历史预置原文（含 zh/en 简介）逐字段完全一致，视为仅保存过旧版预置而非真正定制，`listRolePresets` 读取时忽略该覆盖并采用最新预置；只要覆盖任一字段与所有历史原文不同（包括设置了温度），即视为用户定制并继续覆盖优先。历史预置原文由源码维护（第一、二版），随版本追加。读取不删除旧存储原文、不回写存储、不新增状态所有者、不改 v3 存储格式与协议；官方 builtin 角色不参与。展示列表、详情/性格编辑初始值、默认角色绑定与对话内选择器绑定均经 `listRolePresets` 合并，升级后统一读到新预置；用户基于新预置再次编辑保存将产生新覆盖。依据：实测已安装 DexCode 客户端的 v3 记录中存在与第二版原文一致的 DexCode 覆盖，若无此机制该类客户端升级后将继续使用旧提示词。
+
+验收：空存储两种语言读到第三版（身份以 `You are DexCode, the user's development assistant` 开头，progress 以 `Before your first tool call` 开头，finalReply 不再含第二版首句）；覆盖等于第一或第二版原文（zh 或 en）时两种 locale 均读到第三版预置；覆盖任一字段被真实修改（含设置温度）时保留覆盖；被忽略的覆盖不改变存储内容且 `selectedRoleId` 指向 DexCode 仍有效；官方角色行为不变；E2E 身份与高级覆盖断言随第三版文案同步。
+
+第三版验证记录（2026-10-02）：roleManagement/roleSwitching/roleAdvanced/composerRoleSelection 单测共 35 项通过，新增过时覆盖升级三用例（历史原文 zh/en 全量升级、真定制与温度保留、store 读取不改写存储）。覆盖原文经 CDP 从运行中的隔离开发实例导出（`.local-debug` 目录，不入库）。`pnpm typecheck` 通过；`pnpm lint` 0 错误、69 条既有警告；`pnpm architecture:check --changed` 0 违规；变更文件 oxfmt 检查通过。`rolePresetShipping.e2e.mjs` 断言已同步第三版文案（progress `Before your first tool call`、finalReply `talking to a real person`），但本轮未执行通过：隔离调试实例重启后处于登录页（该实例从未保存登录凭据，属预期行为），角色管理入口不可达，未绕过登录门禁强跑。已安装 DexCode 客户端的 v3 记录经只读检查确认存在与第二版原文一致的 DexCode 覆盖，为升级规则的直接依据。未制作发行包；安装包携带第三版内容由 `rolePresets.ts` 源码定义保证，下次 `pnpm bundle:dexcode` 生效。执行环境 Node 24.18.0，与 mise 固定的 24.14.0 有差异。
+
 ## 高级提示词配置（2026-10-01）
 
 高级英文提示词的标题旁提供小问号，悬浮或键盘聚焦显示对应官方默认片段的完整中文译文。官方与自建角色均可查看；参考译文固定为中文，不随角色覆盖或界面语言改写。长译文支持滚动，在手机视口内不溢出。中文参考仅属于 UI 展示，不注入模型、不持久化到角色资料；UI 按共享片段 ID 维护对应译文，复用现有 Tooltip。验收包括十二项内容对应、悬浮与焦点查看、长文本及小屏布局，以及自定义内容不改变默认参考。
