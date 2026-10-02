@@ -23,6 +23,9 @@ flowchart LR
 
 ## 验收
 
+- `bundle:dexcode` 拒绝非 Windows x64 的参数覆盖（含 `--os=...` / `--arch=...`），相同值及其他合法选项仍可透传。
+- DexCode 开发态同样使用独立 appId；官方与 Preview 开发态继续使用历史开发标识。删除未消费的 CUA 环境开关，工具隔离继续由实际工具变体入口持有。
+
 - 构建身份解析及 appId/产品名、共享 flavor 保留官方兼容，非法或冲突开关拒绝。
 - 最早期目录初始化独立，设置读取和 Agent 数据环境不指向官方 home。
 - DexCode 安装器无 `zcode` 注册，运行无官方协议写入，右键注册只涉及 DexCode key。

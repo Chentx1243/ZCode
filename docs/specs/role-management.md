@@ -69,6 +69,26 @@ flowchart LR
 
 ## 产品规则
 
+### 合并前缺陷修复（2026-10-02）
+
+- 性格弹窗确认必须显式传递 `temperature: undefined` 表示恢复默认，覆盖详情草稿的旧值；保存后持久化资料与会话 binding 均不含温度。
+- 角色存储损坏或迁移写入失败时，保留原始存储及 loadError，草稿默认回退官方角色并显示本地化提示；创建不因读取失败崩溃，编辑仍禁止覆盖损坏资料。
+- 未提交草稿只以角色 ID 表达选择，创建/预热/首发校验统一读取当前预设；每次成功更新预设发布 roleGeneration。已有会话继续使用其不可变快照。
+- 中文和英文 `roles.*` 消息必须对齐；已有会话快照尚未就绪时禁止角色切换，runtime 的 busy/queued 守卫继续生效。
+- 初始绑定失败时关闭刚建立的 deferred record 并返回失败，不能降级为官方身份发送。
+- 非交互回归由根 `test:review` 聚合，纳入 `verify:pre-push` 和 CI；依赖隔离客户端的 E2E 另行执行并如实记录。
+
+```mermaid
+sequenceDiagram
+  participant D as 未提交草稿
+  participant S as 角色Store
+  participant P as 预热会话
+  S->>S: 预设持久化成功后发布 generation
+  D->>S: 按所选ID读取当前资料
+  D->>P: 失效旧载体并以最新binding重建
+  D->>P: 首发校验binding一致后提交
+```
+
 - 页面沿用插件市场的内容宽度和边距，按标题、说明与右侧操作、搜索框、带分隔线的“角色预设”分区排列。用户要求与插件市场一致：主标题复用其 text-2xl / lg:text-3xl 字号，其他字号沿用 text-ui 标记；搜索框直接复用 SettingsSearchInput，列表区采用 space-y-8，分区标题底部间距 pb-2，新建按钮采用市场主操作按钮样式。搜索在页面局部持有，按名称、来源和简介过滤，不修改 store；无匹配时展示空结果提示。
 
 - 工作区侧栏在“插件市场”下方提供“角色管理”；独立主页面复用现有工作区导航历史。

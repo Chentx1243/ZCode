@@ -222,15 +222,10 @@ function createWebPlatform(): IPlatformService {
     // 选中但未安装的字体由 CSS 字体栈回退到默认栈。
     listSystemFonts: () =>
       Promise.resolve([
-        "思源黑体 SC",
         "Source Han Sans SC",
-        "微软雅黑",
         "Microsoft YaHei",
-        "苹方",
         "PingFang SC",
-        "黑体",
         "SimHei",
-        "宋体",
         "SimSun",
         "Noto Sans CJK SC",
         "Segoe UI",

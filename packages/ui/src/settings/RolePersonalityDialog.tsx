@@ -63,7 +63,9 @@ export function RolePersonalityDialog({
   const [warning, setWarning] = useState<AdvancedSettingId | null>(null);
   const [focusField, setFocusField] = useState<AdvancedSettingId | null>(null);
   const [invalidField, setInvalidField] = useState<AdvancedSettingId | null>(null);
-  const fields = useRef<Partial<Record<AdvancedSettingId, HTMLTextAreaElement | HTMLInputElement | null>>>({});
+  const fields = useRef<
+    Partial<Record<AdvancedSettingId, HTMLTextAreaElement | HTMLInputElement | null>>
+  >({});
   const triggers = useRef<Partial<Record<AdvancedSettingId, HTMLButtonElement | null>>>({});
   const cancelWarning = useRef<HTMLButtonElement | null>(null);
   const confirmedUnlock = useRef(false);
@@ -109,7 +111,8 @@ export function RolePersonalityDialog({
       identityPrompt: local.identityPrompt,
       expressionStylePrompt: local.expressionStylePrompt,
       promptOverrides: normalizeRolePromptOverrides(local.promptOverrides),
-      ...(temperatureConfigured ? { temperature: parsedTemperature } : {}),
+      // 恢复默认必须显式覆盖详情草稿的旧温度；缺键的 spread 合并会保留旧值。
+      temperature: temperatureConfigured ? parsedTemperature : undefined,
     });
   };
 

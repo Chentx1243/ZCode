@@ -1,9 +1,12 @@
 import { createStore } from "zustand/vanilla";
+import { DEFAULT_LOCALE, type RoleBinding } from "@zcode/shared";
 import {
   OFFICIAL_ROLE_TEMPLATE,
   getRolePresetDefinition,
   isRolePresetFields,
   normalizeRolePresetFields,
+  listRolePresets,
+  rolePresetToBinding,
   type RolePresetFields,
   type RolePresetOverrides,
 } from "../lib/rolePresets.js";
@@ -32,6 +35,7 @@ interface RoleManagementState {
   hydrated: boolean;
   loadError: "storage" | "invalid" | null;
   hydrate: () => void;
+  resolveDraftRoleBinding: (binding?: RoleBinding, locale?: string) => RoleBinding;
   createRole: (fields: RolePresetFields) => RoleUpdateResult;
   updateRole: (id: string, fields: RolePresetFields) => RoleUpdateResult;
 }
@@ -75,6 +79,15 @@ export function createRoleManagementStore(
     overrides: {},
     hydrated: false,
     loadError: null,
+    resolveDraftRoleBinding: (binding, locale = DEFAULT_LOCALE) => {
+      get().hydrate();
+      // 读取失败只阻止覆盖原资料；新任务仍可按官方身份创建，不在 render/effect 抛错。
+      if (get().loadError || binding?.kind === "official") return { kind: "official" };
+      const id = binding?.kind === "custom" ? binding.roleId : get().selectedRoleId;
+      const role = listRolePresets(get().overrides, locale).find((item) => item.id === id);
+      // 未提交选择按 ID 读取最新预设；已提交会话不调用此入口，保留原内容快照。
+      return role ? rolePresetToBinding(role) : { kind: "official" };
+    },
     hydrate: () => {
       if (get().hydrated) return;
       let raw: string | null;
@@ -191,7 +204,8 @@ export function createRoleManagementStore(
       set({
         overrides,
         loadError: null,
-        roleGeneration: get().roleGeneration + (get().selectedRoleId === id ? 1 : 0),
+        // 草稿可显式选择非全局默认角色，所有成功编辑都必须使预热载体失效。
+        roleGeneration: get().roleGeneration + 1,
       });
       return { ok: true };
     },

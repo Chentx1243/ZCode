@@ -11,6 +11,5 @@ export function createDexCodeIsolationEnv(appDataPath: string): Record<string, s
     ZCODE_HOME: join(home, ".zcode"),
     ZCODE_DESKTOP_USER_DATA_DIR: root,
     ZCODE_DESKTOP_SESSION_DATA_DIR: join(root, "session"),
-    ZCODE_CUA_HELPER_INSTALL_VARIANT: "dexcode",
   };
 }

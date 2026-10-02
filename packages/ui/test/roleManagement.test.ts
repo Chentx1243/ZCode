@@ -24,6 +24,50 @@ import {
 
 const DEXCODE_PRESET_ID = "04a923fa-2db3-4a85-b456-8ffa17ef86a1";
 
+test("corrupt or inaccessible role storage falls back to official without overwriting data", () => {
+  const storage = memoryStorage();
+  storage.setItem(ROLE_PRESETS_STORAGE_KEY, "broken json");
+  const corrupt = createRoleManagementStore(() => storage);
+  assert.deepEqual(corrupt.getState().resolveDraftRoleBinding(), { kind: "official" });
+  assert.equal(corrupt.getState().loadError, "invalid");
+  assert.equal(storage.getItem(ROLE_PRESETS_STORAGE_KEY), "broken json");
+  assert.equal(corrupt.getState().updateRole(DEXCODE_PRESET_ID, edited).error, "storage");
+  const denied = createRoleManagementStore(() => {
+    throw new Error("denied");
+  });
+  assert.deepEqual(denied.getState().resolveDraftRoleBinding(), { kind: "official" });
+  assert.equal(denied.getState().loadError, "storage");
+});
+
+test("editing a non-default draft role invalidates prewarm and resolves fresh content", () => {
+  const store = createRoleManagementStore(() => memoryStorage());
+  store.getState().hydrate();
+  const draftBinding = rolePresetToBinding(listRolePresets({}, "en-US")[1]!);
+  const generation = store.getState().roleGeneration;
+  assert.equal(store.getState().selectedRoleId, "zcode-official");
+  assert.equal(store.getState().updateRole(DEXCODE_PRESET_ID, edited).ok, true);
+  assert.equal(store.getState().roleGeneration, generation + 1);
+  const fresh = store.getState().resolveDraftRoleBinding(draftBinding, "en-US");
+  assert.ok(fresh.kind === "custom");
+  assert.equal(fresh.identityPrompt, edited.identityPrompt);
+  assert.notDeepEqual(fresh, draftBinding);
+  assert.deepEqual(store.getState().resolveDraftRoleBinding({ kind: "official" }), {
+    kind: "official",
+  });
+});
+
+test("unmodified default preset binding uses the requested locale", () => {
+  const storage = memoryStorage();
+  const store = createRoleManagementStore(() => storage);
+  store.getState().setDefaultRole(DEXCODE_PRESET_ID);
+  for (const locale of ["zh-CN", "en-US"]) {
+    assert.deepEqual(
+      store.getState().resolveDraftRoleBinding(undefined, locale),
+      rolePresetToBinding(listRolePresets({}, locale)[1]!),
+    );
+  }
+});
+
 function memoryStorage() {
   const data = new Map<string, string>();
   return {

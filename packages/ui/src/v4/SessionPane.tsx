@@ -2284,7 +2284,16 @@ export function SessionPane({
   // ── 草稿态 v4 draft session 预热（m5）──
   // pane 未绑定会话时后台建 phase=draft 会话作预热载体：配置写 CAS 直达、首发复用。
   // 对外绑定语义不变（shell activeTaskId 仍 null），预热会话只是 pane 内部 effective 订阅目标。
-  const { roles: rolePresets, selectedRoleId: defaultRoleId, roleGeneration } = useRolePresets();
+  const {
+    roles: rolePresets,
+    selectedRoleId: defaultRoleId,
+    roleGeneration,
+    loadError: roleLoadError,
+  } = useRolePresets();
+  useEffect(() => {
+    // 存储恢复失败不阻断新任务；保留错误提示和原资料，binding 解析回退官方。
+    if (roleLoadError && !sessionId) toast(intl.formatMessage({ id: "roles.loadError" }));
+  }, [roleLoadError, sessionId, intl]);
   const roleOptions = useMemo(
     () =>
       rolePresets.map((role) => ({
@@ -3457,7 +3466,7 @@ export function SessionPane({
         setDraftRoleSelectionVersion((version) => version + 1);
         return;
       }
-      if (snapshot?.control.phase === "running" || (snapshot?.queue.items.length ?? 0) > 0) {
+      if (!snapshot || snapshot.control.phase === "running" || snapshot.queue.items.length > 0) {
         toast(intl.formatMessage({ id: "roles.busyCannotSwitch" }));
         return;
       }
@@ -3473,15 +3482,7 @@ export function SessionPane({
         toast(intl.formatMessage({ id: "roles.switchFailed" }));
       }
     },
-    [
-      configCommandBarrier,
-      dispatchConfigCas,
-      handleDraftSelectRole,
-      intl,
-      sessionId,
-      snapshot?.control.phase,
-      snapshot?.queue.items.length,
-    ],
+    [configCommandBarrier, dispatchConfigCas, handleDraftSelectRole, intl, sessionId, snapshot],
   );
 
   const handleSelectThought = useCallback(

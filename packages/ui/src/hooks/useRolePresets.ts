@@ -2,7 +2,7 @@ import type { RoleBinding } from "@zcode/shared";
 import { useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { listRolePresets, rolePresetToBinding } from "@/lib/rolePresets.js";
+import { listRolePresets } from "@/lib/rolePresets.js";
 import { roleManagementStore } from "@/store/roleManagementStore.js";
 
 export function useRolePresets() {
@@ -30,14 +30,10 @@ export function useRolePresets() {
 }
 
 /** 创建瞬间读取内容快照；预热和无预热创建使用同一解析入口。 */
-export function readDefaultRoleBinding(): RoleBinding {
-  roleManagementStore.getState().hydrate();
-  const state = roleManagementStore.getState();
-  if (state.loadError)
-    throw new Error("Default role could not be restored; reload before creating a conversation");
-  const role = listRolePresets(state.overrides, "zh-CN").find(
-    (item) => item.id === state.selectedRoleId,
-  );
-  if (!role) throw new Error("Default role is unavailable");
-  return rolePresetToBinding(role);
+export function readDefaultRoleBinding(locale?: string): RoleBinding {
+  return roleManagementStore.getState().resolveDraftRoleBinding(undefined, locale);
+}
+
+export function readDraftRoleBinding(binding?: RoleBinding, locale?: string): RoleBinding {
+  return roleManagementStore.getState().resolveDraftRoleBinding(binding, locale);
 }

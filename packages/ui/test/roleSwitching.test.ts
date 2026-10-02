@@ -337,3 +337,60 @@ test("V4 creation installs the requested role before the create acknowledgement"
   assert.deepEqual(bound, role);
   assert.deepEqual(result, { type: "createSession", sessionId: "created" });
 });
+
+test("V4 creation closes the deferred record when initial role binding fails", async () => {
+  const closed: string[] = [];
+  let firstInputStarted = false;
+  const host = {
+    createSessionRecord: async () => ({ sessionId: "invalid-role" }),
+    closeSession: async (id: string) => {
+      closed.push(id);
+    },
+    getRecord: () => ({
+      app: {
+        runtime: {
+          bindInitialRole: () => {
+            throw new Error("invalid binding");
+          },
+          executeTurn: () => {
+            firstInputStarted = true;
+          },
+        },
+      },
+    }),
+  };
+  await assert.rejects(
+    new V4CommandExecutor(host as never).execute({
+      type: "createSession",
+      sessionId: null,
+      commandId: "bad-role",
+      payload: {
+        workspaceId: "/role-test",
+        config: { roleBinding: role },
+        firstInput: { text: "hello" },
+      },
+    } as never),
+    /invalid binding/,
+  );
+  assert.deepEqual(closed, ["invalid-role"]);
+  assert.equal(firstInputStarted, false);
+});
+
+test("V4 creation validates malformed role bindings before allocating a record", async () => {
+  let allocated = false;
+  const host = {
+    createSessionRecord: async () => {
+      allocated = true;
+      return { sessionId: "bad" };
+    },
+  };
+  await assert.rejects(
+    new V4CommandExecutor(host as never).execute({
+      type: "createSession",
+      sessionId: null,
+      commandId: "bad-shape",
+      payload: { workspaceId: "/role-test", config: { roleBinding: { kind: "custom" } } },
+    } as never),
+  );
+  assert.equal(allocated, false);
+});

@@ -76,3 +76,5 @@ packages/desktop/.e2e-network-capture/
 artifacts/
 # Windows 并行调试目录含凭据与会话，必须留在本机（见 AGENTS.md），不入库。
 .local-debug/
+# 工作区内的 Agent 本地会话与配置不能随源码提交。
+/.zcode/

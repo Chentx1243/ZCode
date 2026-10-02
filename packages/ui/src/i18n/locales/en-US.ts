@@ -82,7 +82,7 @@ const enUS: Record<string, string> = {
   "roles.selectRole": "Select role",
   "roles.switchFailed": "Could not switch role. Please try again.",
   "roles.busyCannotSwitch":
-    "Role switching is unavailable while this conversation is running or has queued input.",
+    "Role switching is unavailable while this conversation is loading, running or has queued input.",
   "roles.draftRoleNotReady":
     "The default role is preparing, or this runtime does not support roles yet. Please retry shortly.",
   "roles.title": "Role Management",
@@ -109,7 +109,8 @@ const enUS: Record<string, string> = {
   "roles.close": "Close",
   "roles.requiredError": "Role name, character identity and expression style are required.",
   "roles.saveError": "Could not save. Please retry. Your edits have been kept.",
-  "roles.loadError": "Could not restore local role information. Preset content is shown instead.",
+  "roles.loadError":
+    "Could not restore local role information. Preset content is shown instead; new tasks use the official role.",
   "roles.unspecified": "Not specified",
   "roles.noDescription": "No description yet",
   "startPlan.recommendation.subagentDescription":

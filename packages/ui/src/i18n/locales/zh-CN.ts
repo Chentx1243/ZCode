@@ -91,7 +91,10 @@ const zhCN: Record<string, string> = {
   "roles.close": "关闭",
   "roles.requiredError": "角色名称、人物身份和表达风格不能为空。",
   "roles.saveError": "保存失败，请重试。你的编辑内容已保留。",
-  "roles.loadError": "未能恢复本地角色资料，当前展示预设内容。",
+  "roles.selectRole": "选择角色",
+  "roles.switchFailed": "切换角色失败，请重试。",
+  "roles.busyCannotSwitch": "会话尚未就绪、正在运行或有排队输入，暂时无法切换角色。",
+  "roles.loadError": "未能恢复本地角色资料，当前展示预设内容；新任务回退为官方角色。",
   "roles.unspecified": "未填写",
   "roles.noDescription": "暂无简介",
   "startPlan.recommendation.subagentDescription":

@@ -1,4 +1,9 @@
-import { readDefaultRoleBinding } from "@/hooks/useRolePresets.js";
+import {
+  readDefaultRoleBinding,
+  readDraftRoleBinding,
+  useRolePresets,
+} from "@/hooks/useRolePresets.js";
+import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { applyComposerPermissionGrant } from "@/v4/composer/composerPermissionGrant.js";
 /* eslint-disable max-lines -- Composer 草稿 owner 同时收口选择、正文与提交生命周期，保持单一状态边界。 */
 // Composer 的模式/模型选择与正文使用同一 scope 草稿；Session 只提供一次初始化种子。
@@ -181,6 +186,8 @@ export function useDraftConfigControl(params: {
   const effectiveSelection = modelSelectionView
     ? (modelSelectionView.effectiveSelection ?? undefined)
     : draft.modelSelection;
+  const { roleGeneration } = useRolePresets();
+  const { locale } = useZCodeIntl();
   const draftConfig = useMemo<Partial<SessionConfigState>>(
     () => ({
       mode: draft.mode,
@@ -189,7 +196,9 @@ export function useDraftConfigControl(params: {
       provider: effectiveSelection?.providerId ?? "",
       model: effectiveSelection?.modelId ?? "",
       thought: effectiveSelection?.options?.reasoningLevel ?? "",
-      roleBinding: draft.roleBinding ?? (sessionId ? sessionConfig?.roleBinding : undefined),
+      roleBinding: sessionId
+        ? (draft.roleBinding ?? sessionConfig?.roleBinding)
+        : readDraftRoleBinding(draft.roleBinding, locale),
     }),
     [
       draft.mode,
@@ -198,6 +207,8 @@ export function useDraftConfigControl(params: {
       effectiveSelection,
       sessionConfig?.roleBinding,
       sessionId,
+      roleGeneration,
+      locale,
     ],
   );
   const draftConfigRef = useRef(draftConfig);
@@ -283,14 +294,14 @@ export function useDraftConfigControl(params: {
   );
   const resolveInitialDraftConfig = useCallback((): Partial<SessionConfigState> | undefined => {
     // 模式尚未就绪时也必须绑定角色，避免预热会话先按官方身份创建。
-    const roleBinding = draftConfigRef.current.roleBinding ?? readDefaultRoleBinding();
+    const roleBinding = readDraftRoleBinding(draftConfigRef.current.roleBinding, locale);
     if (!draftConfigRef.current.mode) return { roleBinding };
     const config = { ...draftConfigRef.current, roleBinding };
     if (appFollowupMode) {
       config.followupMode = appFollowupMode;
     }
     return config;
-  }, [appFollowupMode]);
+  }, [appFollowupMode, locale]);
 
   const updateComposerContent = useCallback(
     (content: Pick<V4ComposerDraft, "text" | "editorStateJson" | "mention">) => {
