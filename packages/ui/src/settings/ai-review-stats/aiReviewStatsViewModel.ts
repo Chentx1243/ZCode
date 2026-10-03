@@ -8,6 +8,9 @@ const DISPLAY_WEEK_COUNT = 52;
 
 export type AiReviewGranularity = "daily" | "weekly" | "monthly";
 
+/** 热力图粒度与使用统计三档一致：每日/每周/累计。 */
+export type AiReviewHeatmapGranularity = "daily" | "weekly" | "cumulative";
+
 export interface AiReviewHeatmapDisplayColumn {
   key: string;
   monthDate: string;
@@ -76,7 +79,7 @@ export function buildDenseDayGrid(
 export interface HeatmapTexts {
   cell: (date: string, count: number) => string;
   week: (date: string, count: number) => string;
-  month: (label: string, count: number) => string;
+  cumulative: (date: string, count: number) => string;
 }
 
 function resolveColumnMonthDate(days: { date: string }[]): string {
@@ -86,7 +89,7 @@ function resolveColumnMonthDate(days: { date: string }[]): string {
 
 export function buildAiReviewHeatmapColumns(
   grid: { date: string; reviewed: number }[][],
-  granularity: AiReviewGranularity,
+  granularity: AiReviewHeatmapGranularity,
   texts: HeatmapTexts,
   formatMonth: (date: string) => string,
 ): {
@@ -94,35 +97,18 @@ export function buildAiReviewHeatmapColumns(
   monthLabels: { key: string; label: string; span: number }[];
   gridTemplateColumns: string;
 } {
-  // 月/周视图共用使用统计的"列填充"样式：保持 52 周细密列网格，列值分别是
-  // 该周或该周所在月份的聚合量，格子自下而上按占最大值的比例填充。
+  // 周/累计视图共用使用统计的"列填充"样式：保持 52 周细密列网格；每周列值为该周
+  // 总量（weekly）或自起始周到该周的累计总量（cumulative，逐周前缀和），
+  // 格子自下而上按占最大值的比例填充。
   const weekTotals = grid.map((week) => week.reduce((sum, day) => sum + day.reviewed, 0));
-  const monthTotalsByWeek = (() => {
-    if (granularity !== "monthly") return weekTotals;
-    const monthTotals = new Map<string, number>();
-    for (const week of grid) {
-      for (const day of week) {
-        const monthKey = day.date.slice(0, 7);
-        monthTotals.set(monthKey, (monthTotals.get(monthKey) ?? 0) + day.reviewed);
-      }
-    }
-    // 每周列取该周首日所在月份的总量；同月的各周列同值，形成月台阶。
-    return grid.map(
-      (week) => monthTotals.get((week[0]?.date ?? "").slice(0, 7)) ?? 0,
-    );
-  })();
-  const aggregateValues = granularity === "monthly" ? monthTotalsByWeek : weekTotals;
+  const aggregateValues =
+    granularity === "cumulative"
+      ? weekTotals.reduce<number[]>((acc, total) => {
+          acc.push((acc.at(-1) ?? 0) + total);
+          return acc;
+        }, [])
+      : weekTotals;
   const aggregateMax = Math.max(0, ...aggregateValues);
-  const monthTotalsForLabel = (() => {
-    const map = new Map<string, number>();
-    for (const week of grid) {
-      for (const day of week) {
-        const monthKey = day.date.slice(0, 7);
-        map.set(monthKey, (map.get(monthKey) ?? 0) + day.reviewed);
-      }
-    }
-    return map;
-  })();
 
   const columns =
     granularity === "daily"
@@ -145,11 +131,10 @@ export function buildAiReviewHeatmapColumns(
           const total = aggregateValues[weekIndex] ?? 0;
           const level = levelForValue(total, aggregateMax);
           const weekEndDate = week[6]?.date ?? "";
-          const monthKey = (week[0]?.date ?? "").slice(0, 7);
           const tooltipTitle =
             total > 0
-              ? granularity === "monthly"
-                ? texts.month(formatMonth(week[0]?.date ?? ""), monthTotalsForLabel.get(monthKey) ?? total)
+              ? granularity === "cumulative"
+                ? texts.cumulative(weekEndDate, total)
                 : texts.week(weekEndDate, total)
               : null;
           return {
@@ -157,7 +142,7 @@ export function buildAiReviewHeatmapColumns(
             monthDate: resolveColumnMonthDate(week) || weekEndDate,
             tooltipTitle,
             cells: week.map((day, dayOffset) => {
-              // 周/月视图：等级填充自下而上，格数与聚合量占最大值的比例一致。
+              // 周/累计视图：等级填充自下而上，格数与聚合量占最大值的比例一致。
               const filledRows =
                 total <= 0
                   ? 0

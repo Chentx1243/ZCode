@@ -18,11 +18,11 @@ import {
 import {
   buildAiReviewHeatmapColumns,
   buildDenseDayGrid,
-  type AiReviewGranularity,
+  type AiReviewHeatmapGranularity,
   type AiReviewHeatmapDisplayColumn,
 } from "./aiReviewStatsViewModel.js";
 
-const AI_REVIEW_GRANULARITIES = ["daily", "weekly", "monthly"] as const;
+const AI_REVIEW_GRANULARITIES = ["daily", "weekly", "cumulative"] as const;
 
 function toHeatmapColumn(column: AiReviewHeatmapDisplayColumn): HeatmapDisplayColumn {
   return {
@@ -41,7 +41,7 @@ function toHeatmapColumn(column: AiReviewHeatmapDisplayColumn): HeatmapDisplayCo
 
 export function AiReviewHeatmap({ days }: { days: AiReviewStatsDay[] }) {
   const { intl, locale } = useZCodeIntl();
-  const [granularity, setGranularity] = useState<AiReviewGranularity>("daily");
+  const [granularity, setGranularity] = useState<AiReviewHeatmapGranularity>("daily");
 
   const texts = {
     cell: (date: string, count: number) =>
@@ -54,9 +54,9 @@ export function AiReviewHeatmap({ days }: { days: AiReviewStatsDay[] }) {
         date: formatFullDay(locale, date),
         count: formatCompactNumber(locale, count),
       }),
-    month: (label: string, count: number) =>
-      intl.formatMessage({ id: "settings.aiReviewStats.heatmap.month" }, {
-        month: label,
+    cumulative: (date: string, count: number) =>
+      intl.formatMessage({ id: "settings.aiReviewStats.heatmap.cumulative" }, {
+        date: formatFullDay(locale, date),
         count: formatCompactNumber(locale, count),
       }),
   };
@@ -77,7 +77,7 @@ export function AiReviewHeatmap({ days }: { days: AiReviewStatsDay[] }) {
         </h3>
         <Tabs
           value={granularity}
-          onValueChange={(value) => setGranularity(value as AiReviewGranularity)}
+          onValueChange={(value) => setGranularity(value as AiReviewHeatmapGranularity)}
           className="shrink-0"
         >
           <TabsList className={USAGE_STATS_TABS_LIST_CLASS}>
