@@ -61,26 +61,25 @@ export function AiReviewPieChart({ snapshot }: { snapshot: AiReviewStatsSnapshot
     (value: unknown, _name: unknown, item: { color?: string; payload?: unknown }) => {
       const slice = item.payload as AiReviewPieSlice | undefined;
       const count = typeof value === "number" ? value : (slice?.count ?? 0);
+      // 单行紧凑布局：色点 + 名称 + 数量 + 占比；多行嵌套在窄 tooltip 里会视觉重叠。
       return (
-        <>
-          <span
-            className="size-2 shrink-0 self-center rounded-full"
-            style={{ backgroundColor: item.color ?? slice?.color }}
-          />
-          <div className="grid min-w-0 flex-1 gap-1">
-            <div className="truncate text-foreground-subtle">{slice?.label ?? String(_name)}</div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="flex items-baseline gap-1 text-foreground">
-                <span className="font-mono font-medium tabular-nums">
-                  {formatCompactNumber(locale, count)}
-                </span>
-              </span>
-              <span className="font-mono text-foreground-subtle tabular-nums">
-                {formatPercent(locale, slice?.share ?? 0)}
-              </span>
-            </div>
-          </div>
-        </>
+        <div className="flex w-full items-center justify-between gap-3">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: item.color ?? slice?.color }}
+            />
+            <span className="truncate text-foreground-subtle">{slice?.label ?? String(_name)}</span>
+          </span>
+          <span className="flex shrink-0 items-baseline gap-1.5">
+            <span className="font-mono text-foreground tabular-nums">
+              {formatCompactNumber(locale, count)}
+            </span>
+            <span className="font-mono text-foreground-subtle tabular-nums">
+              {formatPercent(locale, slice?.share ?? 0)}
+            </span>
+          </span>
+        </div>
       );
     },
     [locale],

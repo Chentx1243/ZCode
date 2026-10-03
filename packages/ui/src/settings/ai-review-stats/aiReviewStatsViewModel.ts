@@ -94,47 +94,35 @@ export function buildAiReviewHeatmapColumns(
   monthLabels: { key: string; label: string; span: number }[];
   gridTemplateColumns: string;
 } {
-  if (granularity === "monthly") {
-    // 月视图：按月聚合为单列色块（每列 7 格填充同一等级），列数=跨越的月数。
-    const months = new Map<string, { total: number; anchorDate: string }>();
+  // 月/周视图共用使用统计的"列填充"样式：保持 52 周细密列网格，列值分别是
+  // 该周或该周所在月份的聚合量，格子自下而上按占最大值的比例填充。
+  const weekTotals = grid.map((week) => week.reduce((sum, day) => sum + day.reviewed, 0));
+  const monthTotalsByWeek = (() => {
+    if (granularity !== "monthly") return weekTotals;
+    const monthTotals = new Map<string, number>();
     for (const week of grid) {
       for (const day of week) {
         const monthKey = day.date.slice(0, 7);
-        const entry = months.get(monthKey) ?? { total: 0, anchorDate: day.date };
-        entry.total += day.reviewed;
-        months.set(monthKey, entry);
+        monthTotals.set(monthKey, (monthTotals.get(monthKey) ?? 0) + day.reviewed);
       }
     }
-    const entries = [...months.entries()];
-    const maxValue = Math.max(0, ...entries.map(([, entry]) => entry.total));
-    const columns: AiReviewHeatmapDisplayColumn[] = entries.map(([monthKey, entry]) => {
-      const level = levelForValue(entry.total, maxValue);
-      const label = formatMonth(entry.anchorDate);
-      return {
-        key: `monthly-${monthKey}`,
-        monthDate: entry.anchorDate,
-        tooltipTitle: texts.month(label, entry.total),
-        cells: Array.from({ length: DAYS_PER_WEEK }, (_, dayOffset) => ({
-          key: `monthly-${monthKey}-${dayOffset}`,
-          level,
-          hasValue: entry.total > 0,
-          columnHover: true,
-        })),
-      };
-    });
-    return {
-      columns,
-      monthLabels: entries.map(([monthKey, entry]) => ({
-        key: monthKey,
-        label: formatMonth(entry.anchorDate),
-        span: 1,
-      })),
-      gridTemplateColumns: `repeat(${Math.max(1, entries.length)}, minmax(0, 1fr))`,
-    };
-  }
-
-  const weekTotals = grid.map((week) => week.reduce((sum, day) => sum + day.reviewed, 0));
-  const maxValue = Math.max(0, ...weekTotals);
+    // 每周列取该周首日所在月份的总量；同月的各周列同值，形成月台阶。
+    return grid.map(
+      (week) => monthTotals.get((week[0]?.date ?? "").slice(0, 7)) ?? 0,
+    );
+  })();
+  const aggregateValues = granularity === "monthly" ? monthTotalsByWeek : weekTotals;
+  const aggregateMax = Math.max(0, ...aggregateValues);
+  const monthTotalsForLabel = (() => {
+    const map = new Map<string, number>();
+    for (const week of grid) {
+      for (const day of week) {
+        const monthKey = day.date.slice(0, 7);
+        map.set(monthKey, (map.get(monthKey) ?? 0) + day.reviewed);
+      }
+    }
+    return map;
+  })();
 
   const columns =
     granularity === "daily"
@@ -143,7 +131,7 @@ export function buildAiReviewHeatmapColumns(
           monthDate: resolveColumnMonthDate(week),
           tooltipTitle: null,
           cells: week.map((day) => {
-            const level = levelForValue(day.reviewed, maxValue);
+            const level = levelForValue(day.reviewed, aggregateMax);
             return {
               key: `daily-${day.date}`,
               level,
@@ -154,20 +142,32 @@ export function buildAiReviewHeatmapColumns(
           }),
         }))
       : grid.map((week, weekIndex) => {
-          const total = weekTotals[weekIndex] ?? 0;
-          const level = levelForValue(total, maxValue);
+          const total = aggregateValues[weekIndex] ?? 0;
+          const level = levelForValue(total, aggregateMax);
           const weekEndDate = week[6]?.date ?? "";
+          const monthKey = (week[0]?.date ?? "").slice(0, 7);
+          const tooltipTitle =
+            total > 0
+              ? granularity === "monthly"
+                ? texts.month(formatMonth(week[0]?.date ?? ""), monthTotalsForLabel.get(monthKey) ?? total)
+                : texts.week(weekEndDate, total)
+              : null;
           return {
-            key: `weekly-${weekIndex}`,
+            key: `${granularity}-${weekIndex}`,
             monthDate: resolveColumnMonthDate(week) || weekEndDate,
-            tooltipTitle: total > 0 ? texts.week(weekEndDate, total) : null,
+            tooltipTitle,
             cells: week.map((day, dayOffset) => {
-              // 周视图：等级填充自下而上，格数与总量占最大周量的比例一致。
+              // 周/月视图：等级填充自下而上，格数与聚合量占最大值的比例一致。
               const filledRows =
-                total <= 0 ? 0 : Math.min(DAYS_PER_WEEK, Math.max(1, Math.ceil((total / Math.max(1, maxValue)) * DAYS_PER_WEEK)));
+                total <= 0
+                  ? 0
+                  : Math.min(
+                      DAYS_PER_WEEK,
+                      Math.max(1, Math.ceil((total / Math.max(1, aggregateMax)) * DAYS_PER_WEEK)),
+                    );
               const isFilled = dayOffset >= DAYS_PER_WEEK - filledRows;
               return {
-                key: `weekly-${day.date}`,
+                key: `${granularity}-${day.date}`,
                 level: isFilled ? level : (0 as const),
                 hasValue: isFilled && total > 0,
                 columnHover: true,

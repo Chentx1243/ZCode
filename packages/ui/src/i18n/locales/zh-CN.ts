@@ -2212,7 +2212,7 @@ const zhCN: Record<string, string> = {
   "settings.aiReviewStats.summary.rejected": "自动拒绝",
   "settings.aiReviewStats.summary.interceptRate": "有效拦截率",
   "settings.aiReviewStats.summary.interceptRateTooltip": "AI 拒绝的操作中，你在确认窗同样选择拒绝的比例，衡量审核拦截的有效性。",
-  "settings.aiReviewStats.summary.avgExtraTimeTooltip": "每条指令从送审到 AI 给出结论的平均耗时，即自动审核为该操作增加的等待时间。",
+  "settings.aiReviewStats.summary.avgExtraTimeTooltip": "每条指令送审的平均耗时。",
   "settings.aiReviewStats.unit.count": "条",
   "settings.aiReviewStats.unit.seconds": "秒",
   "settings.aiReviewStats.summary.avgExtraTime": "审查额外耗时",
