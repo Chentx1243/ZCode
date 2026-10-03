@@ -67,6 +67,7 @@ import { createWorkflowFacade } from "./workflow-facade.js";
 import { createInputFacade } from "./input-facade.js";
 import { createPluginFacadeForApp } from "./plugin-facade.js";
 import { resolvePluginRuntimeFeatures } from "./plugin-runtime-features.js";
+import { createAiReviewStatsRecorder } from "./ai-review-stats.js";
 import { createSessionFacade } from "./session-facade.js";
 import { resolveAppRuntimeConfig, runtimeConfigLogContext } from "./runtime-config.js";
 import { resolveBundledSkillRoots } from "./bundled-skills.js";
@@ -718,6 +719,8 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       fileSystemPort,
       logger,
     });
+    // 自动审核统计：全局一份 recorder（readSnapshot 供 v4 RPC 读取）。
+    const aiReviewStatsRecorder = createAiReviewStatsRecorder(localSettingStore, { logger });
     // 模型目录：工具层把用户说的模型名解析成 workflow run 的子代理选型（model-catalog-port.ts）。
     const modelCatalogPort = createModelCatalogPort({
       registry: options.providerRegistry,
@@ -725,6 +728,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
     });
     runtime = new AgentRuntime(sessionId, runtimeConfig, {
       agentTelemetry: modelTelemetry.agentExecution,
+      aiReviewStatsPort: aiReviewStatsRecorder?.port,
       // 主代理的模型请求过治理器的 observer：立即放行，但让治理器看见它的 429 / 成功。
       modelRequestAdmission: workflowConcurrencyGovernor.observer(),
       eventStore: options.eventStore ?? createInMemorySessionEventStore(),

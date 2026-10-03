@@ -30,6 +30,32 @@ import type { SessionGoal, GoalStatus } from "../tools/target.js";
 import type { PermissionRuleset } from "./permission.port.js";
 import type { CollaborationMode } from "./session.port.js";
 import type { EnvInfo } from "./context-source.port.js";
+import type { AiReviewStatsData } from "@zcode/shared";
+
+/** 自动审核统计的单条埋点：送审结果（approved/rejected）或拒绝后的用户决定。 */
+export interface AiReviewStatEvent {
+  outcome: "approved" | "rejected" | "rejectedAllowed" | "rejectedDenied";
+  /** 送审模型调用耗时；仅 approved/rejected 事件携带。 */
+  durationMs?: number;
+}
+
+/** 自动审核统计埋点端口：fire-and-forget，实现方负责聚合与持久化。 */
+export interface AiReviewStatsPort {
+  recordAiReviewEvent(event: AiReviewStatEvent): void;
+}
+
+export interface LocalSettingStorePort {
+  getProjectPermissionMode(
+    projectID: ProjectId,
+  ): CollaborationMode | null | Promise<CollaborationMode | null>;
+  saveProjectPermissionMode(input: {
+    mode: CollaborationMode;
+    projectID: ProjectId;
+  }): CollaborationMode | Promise<CollaborationMode>;
+  /** 全局（scope=global）自动审核统计桶；缺席等同无数据。 */
+  getAiReviewStats?(): AiReviewStatsData | undefined | Promise<AiReviewStatsData | undefined>;
+  saveAiReviewStats?(data: AiReviewStatsData): unknown | Promise<unknown>;
+}
 
 export const SESSION_TASK_TYPES = [
   "interactive",

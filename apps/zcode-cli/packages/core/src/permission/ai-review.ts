@@ -1,16 +1,13 @@
 // ============================================================
-// AI Tool Review - review（自动审核）模式的工具调用送审
+// AI Tool Review - review（自动审核）模式的送审纯逻辑
 // ============================================================
 // 权限服务保持同步纯函数：checkReviewMode 对非只读操作返回带 pendingAiReview
-// 标记的 ask，异步送审由 executor 的 permission flow 调用本模块完成。审核只
-// 收紧不放宽：approve 等价放行，reject/unavailable 一律转现有人工确认链路。
+// 标记的 ask，异步送审由 executor 的 permission flow 发起、模型执行在 runtime 侧
+// （methods/ai-tool-review.ts，经完整调用上下文）。审核只收紧不放宽：approve 等价
+// 放行，reject/unavailable 一律转现有人工确认链路。
+// 本文件只保留与模型无关的纯函数：签名、描述、prompt 构造、输出解析。
 
-import type { Model, ModelInputMessage, ModelOptions } from "@zcode/contracts";
-import type { Logger } from "@zcode/contracts";
-import { auxiliaryModelOptions } from "../model/auxiliary-model-options.js";
-
-/** 单次送审的默认超时；权限链路不能因审核无限挂起。 */
-const DEFAULT_REVIEW_TIMEOUT_MS = 15_000;
+import type { ModelInputMessage } from "@zcode/contracts";
 
 /** 操作描述（命令/路径等）进入 prompt 前的截断上限。 */
 const MAX_DESCRIPTION_CHARS = 2_000;
@@ -109,7 +106,9 @@ Approve only if BOTH hold:
 1. Safe: does not destroy data or systems, does not exfiltrate secrets or credentials, does not reach outside the project workspace without need, and is reversible or low-impact.
 2. Relevant: plausibly serves the task context. When no task context is provided, judge safety only and treat relevance as satisfied.
 
-Otherwise reject. Write reasons in the primary language of the task context, or English if none.
+Otherwise reject. Write reasons in the primary human language of the task context
+(the user's own words); without task context, follow the dominant human language
+inside <tool_call>; use English only when neither is present.
 
 Return exactly one valid JSON object with no surrounding text:
 {"decision":"approve"|"reject","riskType":"harmful"|"unrelated"|null,"reasons":["..."]}`;
@@ -160,50 +159,6 @@ export function parseAiToolReviewText(text: string): AiToolReviewOutcome {
     };
   }
   return { outcome: "unavailable", reasons: ["AI review returned an unknown decision"] };
-}
-
-export async function runAiToolReview(options: {
-  model: Model;
-  request: AiToolReviewRequest;
-  logger?: Logger;
-  timeoutMs?: number;
-}): Promise<AiToolReviewOutcome> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_REVIEW_TIMEOUT_MS;
-  // 审核是一次性分类调用：压到公开档位最低档并限制输出预算（与辅助调用同口径）。
-  const auxiliary = auxiliaryModelOptions(options.model);
-  const reviewOptions: ModelOptions = {
-    reasoningLevel: auxiliary.reasoningLevel,
-    maxOutputTokens: Math.min(auxiliary.maxOutputTokens, 1_000),
-  };
-  const model = options.model.bind(reviewOptions);
-
-  try {
-    const result = await model.generateText({
-      abortSignal: AbortSignal.timeout(timeoutMs),
-      messages: buildAiToolReviewMessages(options.request),
-      tools: [],
-    });
-    const outcome = parseAiToolReviewText(result.text ?? "");
-    options.logger?.debug("AI tool review completed", {
-      event: "permission.ai_review.completed",
-      module: "core.permission",
-      outcome: outcome.outcome,
-      riskType: outcome.outcome === "reject" ? outcome.riskType : undefined,
-      toolName: options.request.toolName,
-    });
-    return outcome;
-  } catch (error) {
-    options.logger?.debug("AI tool review failed", {
-      event: "permission.ai_review.failed",
-      errorMessage: error instanceof Error ? error.message : String(error),
-      module: "core.permission",
-      toolName: options.request.toolName,
-    });
-    return {
-      outcome: "unavailable",
-      reasons: ["AI review unavailable (timeout or model failure)"],
-    };
-  }
 }
 
 /** 审核意见汇总为给用户看的一段文本，挂在确认请求的 reason 上。 */

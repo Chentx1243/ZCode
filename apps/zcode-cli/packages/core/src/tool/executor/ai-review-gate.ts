@@ -1,9 +1,5 @@
 import type { PermissionDecisionResult } from "../../permission/service.js";
-import {
-  computeToolReviewSignature,
-  formatAiReviewNotice,
-  runAiToolReview,
-} from "../../permission/ai-review.js";
+import { computeToolReviewSignature, formatAiReviewNotice } from "../../permission/ai-review.js";
 import type { ExecutableToolCall } from "../types.js";
 import type { ToolExecutorDeps } from "./types.js";
 
@@ -18,27 +14,29 @@ export async function applyAiToolReviewGate(
   toolCall: ExecutableToolCall,
   executionInput: unknown,
   decision: PermissionDecisionResult,
-): Promise<{ decision: PermissionDecisionResult; reviewSignature: string }> {
+  traceContext?: ToolExecutorDeps["traceContext"],
+): Promise<{ decision: PermissionDecisionResult; reviewSignature: string; aiRejected: boolean }> {
   const reviewSignature = computeToolReviewSignature(toolCall.name, executionInput);
-  if (!deps.model) {
-    return {
-      decision: {
-        ...decision,
-        reason: formatAiReviewNotice({
-          outcome: "unavailable",
-          reasons: ["no model available"],
-        }),
-      },
-      reviewSignature,
-    };
+  const reviewStartedAt = Date.now();
+  const reviewOutcome = deps.executeAiToolReview
+    ? await deps.executeAiToolReview(
+        { toolName: toolCall.name, input: executionInput },
+        traceContext ? { traceContext } : undefined,
+      )
+    : ({
+        outcome: "unavailable",
+        reasons: ["ai review executor is not available"],
+      } as { outcome: "unavailable"; reasons: string[] });
+  // 统计口径：reviewed/approved/rejected 只记真实送审结果；unavailable（无执行器/
+  // 失败/超时）不是 AI 的结论，不进通过/拒绝计数，其后的用户决定也不回填。
+  if (deps.aiReviewStatsPort && reviewOutcome.outcome !== "unavailable") {
+    deps.aiReviewStatsPort.recordAiReviewEvent({
+      outcome: reviewOutcome.outcome === "approve" ? "approved" : "rejected",
+      durationMs: Date.now() - reviewStartedAt,
+    });
   }
-
-  const outcome = await runAiToolReview({
-    model: deps.model,
-    request: { toolName: toolCall.name, input: executionInput },
-    logger: deps.logger,
-  });
-  if (outcome.outcome === "approve") {
+  const aiRejected = reviewOutcome.outcome === "reject";
+  if (reviewOutcome.outcome === "approve") {
     return {
       decision: {
         ...decision,
@@ -49,10 +47,12 @@ export async function applyAiToolReviewGate(
         reason: "Review mode: AI review approved this action",
       },
       reviewSignature,
+      aiRejected,
     };
   }
   return {
-    decision: { ...decision, reason: formatAiReviewNotice(outcome) },
+    decision: { ...decision, reason: formatAiReviewNotice(reviewOutcome) },
     reviewSignature,
+    aiRejected,
   };
 }

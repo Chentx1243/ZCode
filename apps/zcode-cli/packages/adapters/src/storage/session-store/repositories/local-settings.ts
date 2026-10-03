@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { CollaborationMode, PermissionRuleset, ProjectId } from "@zcode/contracts";
+import { aiReviewStatsDataSchema, type AiReviewStatsData } from "@zcode/shared";
 import { isCollaborationMode } from "../codecs.js";
 import { decodeJson } from "../json.js";
 import type { LocalSettingRow, PermissionRow } from "../rows.js";
@@ -83,6 +84,32 @@ export function saveProjectPermissionMode(
     value: JSON.stringify({ mode: input.mode }),
   });
   return input.mode;
+}
+
+/** 自动审核统计桶：全局 scope，所有会话共用一份。 */
+export function getAiReviewStats(db: DatabaseSync): AiReviewStatsData | undefined {
+  const setting = readLocalSetting(db, {
+    key: "stats",
+    namespace: "aiReview",
+    scope: "global",
+    scopeID: "",
+  });
+  if (!setting) return undefined;
+  const parsed = aiReviewStatsDataSchema.safeParse(decodeJson<unknown>(setting.value));
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function saveAiReviewStats(db: DatabaseSync, data: AiReviewStatsData): AiReviewStatsData {
+  writeLocalSetting(db, {
+    key: "stats",
+    namespace: "aiReview",
+    schemaVersion: 1,
+    scope: "global",
+    scopeID: "",
+    time: Date.now(),
+    value: JSON.stringify(data),
+  });
+  return data;
 }
 
 function readLocalSetting(

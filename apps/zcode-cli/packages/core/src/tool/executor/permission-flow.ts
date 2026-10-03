@@ -104,10 +104,18 @@ export async function resolveToolPermission(
   // review 模式送审：同步裁决到此为 pendingAiReview 的 ask，先过 AI 审核
   // （编排见 ai-review-gate.ts）；approve 改写为放行，否则维持 ask 携意见走确认链路。
   let pendingAiReviewSignature: string | undefined;
+  let pendingAiReviewRejected = false;
   if (permissionDecision.pendingAiReview && permissionDecision.decision === "ask") {
-    const gated = await applyAiToolReviewGate(deps, toolCall, executionInput, permissionDecision);
+    const gated = await applyAiToolReviewGate(
+      deps,
+      toolCall,
+      executionInput,
+      permissionDecision,
+      traceContext,
+    );
     permissionDecision = gated.decision;
     pendingAiReviewSignature = gated.reviewSignature;
+    pendingAiReviewRejected = gated.aiRejected;
   }
 
   deps.logger?.debug("Tool permission evaluated", {
@@ -415,11 +423,16 @@ export async function resolveToolPermission(
   }
 
   // review 模式：用户在确认窗放行过的操作签名进会话记忆，同签名不再送审。
-  if (
-    pendingAiReviewSignature &&
-    (resolvedPermission.decision === "allow" || resolvedPermission.decision === "modify")
-  ) {
-    deps.permissionService.rememberAiReviewApproval(pendingAiReviewSignature);
+  // 统计回填：只有 AI 真实拒绝后的用户决定才计入 rejectedAllowed/rejectedDenied。
+  if (pendingAiReviewSignature) {
+    if (resolvedPermission.decision === "allow" || resolvedPermission.decision === "modify") {
+      deps.permissionService.rememberAiReviewApproval(pendingAiReviewSignature);
+      if (pendingAiReviewRejected) {
+        deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedAllowed" });
+      }
+    } else if (resolvedPermission.decision === "deny" && pendingAiReviewRejected) {
+      deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedDenied" });
+    }
   }
 
   telemetry?.setPermissionDecision("granted");

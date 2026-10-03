@@ -59,6 +59,7 @@ import type {
   UpdateScriptWorkflowRunInput,
   UsageStorePort,
 } from "@zcode/contracts";
+import type { AiReviewStatsData } from "@zcode/shared";
 // 端口留在领域包 @zcode/dynamic-workflow，这里只做类型引用：adapters 运行时不依赖它。
 import type { JournalStorePort } from "@zcode/dynamic-workflow";
 import {
@@ -890,6 +891,14 @@ export class SqliteSessionStore
 
   getProjectPermissionMode(projectID: ProjectId): CollaborationMode | null {
     return localSettingsRepository.getProjectPermissionMode(this.db, projectID);
+  }
+
+  getAiReviewStats(): AiReviewStatsData | undefined {
+    return localSettingsRepository.getAiReviewStats(this.db);
+  }
+
+  saveAiReviewStats(data: AiReviewStatsData): AiReviewStatsData {
+    return localSettingsRepository.saveAiReviewStats(this.db, data);
   }
 
   saveProjectPermissionMode(input: {

@@ -192,6 +192,7 @@ export type {
   SessionId,
   SessionProjection,
   SessionStorePort,
+  AiReviewStatsPort,
   SessionTaskType,
   SessionTitleSource,
   ContextSourcePort,

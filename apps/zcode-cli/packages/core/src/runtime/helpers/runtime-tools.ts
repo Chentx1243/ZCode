@@ -11,6 +11,7 @@ import type { HookRunner, SessionId, ToolExecutor, TraceContext } from "../deps.
 import type { AgentRuntimeInternal } from "../internal.js";
 import type { AgentRuntimeDeps } from "../types.js";
 import { resolveRuntimeEmbeddedSearchEnabled } from "../methods/embedded-search-branch.js";
+import { runAiToolReviewViaRuntime } from "../methods/ai-tool-review.js";
 import { getSessionShellSelectionFromConfig } from "../methods/session-shell-environment.js";
 import { createRuntimeSessionModePort } from "../session-mode-port.js";
 import { shouldSuppressSealedSubagentBashNotification } from "../../runtime-task/notification-policy.js";
@@ -158,6 +159,14 @@ function createRuntimeToolExecutor(
     registry: runtime.registry,
     permissionService: runtime.permissionService,
     permissionBroker: runtime.permissionBroker,
+    // review 模式送审经 runtime 完整调用上下文执行（账号型模型需鉴权头刷新，
+    // 见 methods/ai-tool-review.ts）；executor 层不直接持有 Model。
+    executeAiToolReview: (request, execOptions) =>
+      runAiToolReviewViaRuntime(runtime, request, {
+        logger: runtime.logger,
+        ...(execOptions?.traceContext ? { traceContext: execOptions.traceContext } : {}),
+      }),
+    aiReviewStatsPort: deps.aiReviewStatsPort,
     emitEvent: async (event) => {
       await runtime.appendEvent(event, getCurrentTraceContext() ?? runtime.rootTraceContext);
     },

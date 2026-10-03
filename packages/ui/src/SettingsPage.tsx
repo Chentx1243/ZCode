@@ -58,6 +58,7 @@ import { ModelProviderSection } from "@/settings/ModelProviderSection.js";
 import { useCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
 import { UsageStatsSection, type UsageStatsSectionTab } from "@/settings/UsageStatsSection.js";
+import { AiReviewStatsSection } from "@/settings/ai-review-stats/AiReviewStatsSection.js";
 import {
   buildCodingPlanUsageSources,
   type CodingPlanUsageSource,
@@ -1890,6 +1891,8 @@ export function SettingsPage({
                             workspaceIdentity={activeWorkspaceIdentity}
                             workspacePath={activeWorkspacePath ?? undefined}
                           />
+                        ) : activeSection === "aiReviewStats" ? (
+                          <AiReviewStatsSection />
                         ) : activeSection === "subagents" ? (
                           <SubagentsSection
                             onManageModels={handleOpenModelProviderSettings}

@@ -36,6 +36,11 @@ import type {
 } from "@zcode/contracts";
 import type { HookRunner } from "../../hooks/index.js";
 import type { PermissionService } from "../../permission/service.js";
+import type {
+  AiToolReviewOutcome,
+  AiToolReviewRequest,
+} from "../../permission/ai-review.js";
+import type { AiReviewStatsPort } from "@zcode/contracts";
 import type { RuntimeTaskRegistry } from "../../runtime-task/registry.js";
 import type { ToolRegistry } from "../registry.js";
 import type { ToolSchedule } from "../scheduler.js";
@@ -95,6 +100,17 @@ export interface ToolExecutorOptions {
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
   model?: Model;
+  /**
+   * review 模式送审执行：runtime 侧经完整调用上下文（含账号型模型的鉴权头刷新）
+   * 执行一次性审核调用。executor 层不直接持有 Model——送审时按当前会话模型惰性解析。
+   * 缺席则审核不可用（转人工确认，不静默放行）。
+   */
+  executeAiToolReview?: (
+    request: AiToolReviewRequest,
+    options?: { traceContext?: TraceContext },
+  ) => Promise<AiToolReviewOutcome>;
+  /** review 模式送审统计埋点；缺席则不记录。 */
+  aiReviewStatsPort?: AiReviewStatsPort;
   embeddedSearchBackend?: EmbeddedSearchBackend;
   nativeSearchEnhancementsEnabled?: boolean;
   skillPort?: SkillPort;
@@ -201,6 +217,16 @@ export interface ToolExecutorDeps {
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;
   model?: Model;
+  /**
+   * review 模式送审的模型解析：executor 长期持有，静态 model 实例会随用户切模型过期，
+   * 送审时按当前会话模型选择惰性构建。缺席则审核不可用（转人工确认，不静默放行）。
+   */
+  executeAiToolReview?: (
+    request: AiToolReviewRequest,
+    options?: { traceContext?: TraceContext },
+  ) => Promise<AiToolReviewOutcome>;
+  /** review 模式送审统计埋点；缺席则不记录。 */
+  aiReviewStatsPort?: AiReviewStatsPort;
   embeddedSearchBackend?: EmbeddedSearchBackend;
   nativeSearchEnhancementsEnabled?: boolean;
   skillPort?: SkillPort;

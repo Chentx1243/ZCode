@@ -273,6 +273,7 @@ import {
   v4ConversationUsageResultSchema,
   v4SessionsIndexSubscribeResultSchema,
   v4UsageStatsResultSchema,
+  v4AiReviewStatsResultSchema,
   v4WorkspaceConfigSubscribeResultSchema,
   workspaceConfigTopic,
   workspaceConfigTopicWireCandidateSchema,
@@ -3645,6 +3646,15 @@ export function createZCodeAgentService(
         },
         zcodeSessionSubagentsResultSchema,
       );
+    },
+
+    async getAiReviewStats() {
+      // 自动审核统计在全局 local_setting；与 usage 同一只读 query 模式，任一已连接 client 均可取。
+      const active = activeClientsByWorkspaceKey.values().next().value;
+      if (!active) {
+        throw new Error("no_active_workspace");
+      }
+      return active.client.request(V4_METHODS.aiReviewStats, {}, v4AiReviewStatsResultSchema);
     },
 
     async getAppUsageStats(params: ZCodeAgentAppUsageParams) {
