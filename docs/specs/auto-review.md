@@ -60,3 +60,23 @@ sequenceDiagram
 ## 验证
 
 先补权限裁决与审核器单测（模拟 provider / 模拟审核器），再实现；模式映射与 automation 降级用协议级测试覆盖。执行 `pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed`；弹窗、过渡态与会话记忆的实机交互在隔离开发实例验证并记录。UI E2E 复用 `TID_CHAT_MODE_SELECT_*` 锚点。验证记录在本节追加，未执行的场景单独说明。
+
+### 单测与后端验证记录（2026-10-03）
+
+- `permission-review.test.ts` 17 项通过（裁决分支、审核器解析、签名、防注入 prompt）；根 typecheck、core/bootstrap/cli/adapters typecheck、根 lint、core lint（与官方基线同为 29 errors）均通过。
+- 送审调用经 runtime 完整上下文（账号型模型鉴权头刷新）后实测可用；失败日志 warn 级；超时 30s；审核理由跟随会话目标语言。
+
+### 自动批准统计看板与 E2E 实测（2026-10-03）
+
+设置页"数据与统计"组新增"自动批准统计"分区：指标条（累计审查指令数/自动通过/自动拒绝/有效拦截率/审查额外耗时，排版与使用统计汇总条一致，拦截率与耗时带口径悬浮问号）、审查活动热力图（每日 52 周网格/每周列填充/每月聚合色块，复用 UsageHeatmapCells 原语）、通过/拒绝饼图、平均额外耗时曲线（recharts lazy 加载）。
+
+数据链路：executor 送审闸门计时埋点（审核不可用不计入通过/拒绝）→ bootstrap recorder 按本地日期分桶、串行写全局 local_setting（scope=global）→ `v4/aiReview/stats` 只读 query → usageStatsService → useAiReviewStats。有效拦截率 = rejectedDenied / rejected；deny 分支提前返回处单独回填 rejectedDenied（初版曾漏，实测拦截率恒 0 后修复）。
+
+E2E 实测（隔离实例，桌面测试目录）：
+
+- 正常文件追加：AI 放行直接执行、无弹窗，文件正确写入。
+- 追加"已通过自动审核"字样：AI 以"误导性行为"拒绝（中文理由），转确认窗；用户选拒绝后文件未动。
+- 删除指定临时文件：AI 放行直接执行。
+- 读取凭据：Agent 模型层安全策略直接拒绝，未触发送审（两道独立防线）。
+- 跨工作区复制（用户明确要求）：AI 放行直接执行。
+- 看板数据与用例逐项吻合（审查 4/通过 3/拒绝 1）；问号悬浮说明的合成事件验证受 radix 事件机限制未自动化，真实鼠标交互由用户确认。
