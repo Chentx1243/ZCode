@@ -24,7 +24,12 @@ test("review 模式：零副作用操作直接放行", () => {
 
 test("review 模式：非只读操作挂起送审", () => {
   const decision = makeService().checkPermission(
-    { toolName: "Bash", input: { command: "rm -rf node_modules" }, riskLevel: "high", mode: "review" },
+    {
+      toolName: "Bash",
+      input: { command: "rm -rf node_modules" },
+      riskLevel: "high",
+      mode: "review",
+    },
     { readOnly: false, sideEffectScope: "workspace", needsApproval: true, riskLevel: "high" },
   );
   assert.equal(decision.decision, "ask");
@@ -34,7 +39,12 @@ test("review 模式：非只读操作挂起送审", () => {
 
 test("review 模式：readOnly 但副作用域为 network 的操作仍送审", () => {
   const decision = makeService().checkPermission(
-    { toolName: "WebFetch", input: { url: "https://example.com" }, riskLevel: "medium", mode: "review" },
+    {
+      toolName: "WebFetch",
+      input: { url: "https://example.com" },
+      riskLevel: "medium",
+      mode: "review",
+    },
     { readOnly: true, sideEffectScope: "network", needsApproval: true, riskLevel: "medium" },
   );
   assert.equal(decision.decision, "ask");
@@ -75,7 +85,10 @@ test("其他模式不受影响：build 下同一 capability 仍走 build 规则"
 });
 
 test("解析合法 approve", () => {
-  assert.deepEqual(parseAiToolReviewText('{"decision":"approve"}'), { outcome: "approve" });
+  assert.deepEqual(
+    parseAiToolReviewText('{"decision":"approve","riskType":null,"reasons":["安全且符合需求"]}'),
+    { outcome: "approve" },
+  );
 });
 
 test("解析合法 reject：携带理由与风险类型", () => {
@@ -89,11 +102,11 @@ test("解析合法 reject：携带理由与风险类型", () => {
   }
 });
 
-test("包裹说明文字的 JSON 仍可解析", () => {
+test("包裹说明文字的 JSON 必须转人工确认", () => {
   const outcome = parseAiToolReviewText(
     'Here is the review result: {"decision":"approve"} hope this helps',
   );
-  assert.equal(outcome.outcome, "approve");
+  assert.equal(outcome.outcome, "unavailable");
 });
 
 test("非 JSON 输出按不可用处理，不静默放行", () => {
@@ -106,12 +119,9 @@ test("未知 decision 值按不可用处理", () => {
   assert.equal(outcome.outcome, "unavailable");
 });
 
-test("reasons 非字符串数组时拒绝结果仍成立但理由回退", () => {
+test("reasons 非字符串数组时按不可用处理", () => {
   const outcome = parseAiToolReviewText('{"decision":"reject","reasons":[1,true,null]}');
-  assert.equal(outcome.outcome, "reject");
-  if (outcome.outcome === "reject") {
-    assert.ok(outcome.reasons.length > 0);
-  }
+  assert.equal(outcome.outcome, "unavailable");
 });
 
 test("签名稳定：对象键序无关", () => {
@@ -120,10 +130,53 @@ test("签名稳定：对象键序无关", () => {
   assert.equal(a, b);
 });
 
-test("签名提取规则主题：command 优先于整体序列化", () => {
+test("签名包含完整参数，不只取 command", () => {
   const a = computeToolReviewSignature("Bash", { command: "pnpm test", timeout: 100 });
   const b = computeToolReviewSignature("Bash", { command: "pnpm test", timeout: 999 });
-  assert.equal(a, b);
+  assert.notEqual(a, b);
+});
+
+test("批准记忆区分同路径的不同写入和编辑内容", () => {
+  for (const [toolName, first, second] of [
+    ["Write", { file_path: "/w/a", content: "safe" }, { file_path: "/w/a", content: "different" }],
+    [
+      "Edit",
+      { file_path: "/w/a", old_string: "a", new_string: "b" },
+      { file_path: "/w/a", old_string: "a", new_string: "c" },
+    ],
+  ] as const) {
+    const service = makeService();
+    service.rememberAiReviewApproval(computeToolReviewSignature(toolName, first));
+    const result = service.checkPermission(
+      { toolName, input: second, riskLevel: "medium", mode: "review" },
+      { sideEffectScope: "workspace", readOnly: false, riskLevel: "medium", needsApproval: true },
+    );
+    assert.equal(result.pendingAiReview, true);
+  }
+});
+
+test("同一命令在不同 cwd 不复用批准，签名不保留输入明文", () => {
+  const input = { command: "echo private-content" };
+  assert.notEqual(
+    computeToolReviewSignature("Bash", input, "/w/a"),
+    computeToolReviewSignature("Bash", input, "/w/b"),
+  );
+  assert.doesNotMatch(computeToolReviewSignature("Bash", input, "/w/a"), /private-content/);
+});
+
+test("缺失字段、错误类型、未知字段、代码围栏、数组均不可放行", () => {
+  const valid = { decision: "approve", reasons: ["safe"], riskType: null };
+  for (const text of [
+    '{"decision":"approve"}',
+    JSON.stringify({ ...valid, reasons: [] }),
+    JSON.stringify({ ...valid, reasons: [" "] }),
+    JSON.stringify({ ...valid, reasons: ["safe", 42] }),
+    JSON.stringify({ ...valid, riskType: "invalid" }),
+    JSON.stringify({ ...valid, extra: true }),
+    "```json\n" + JSON.stringify(valid) + "\n```",
+    JSON.stringify([valid]),
+  ])
+    assert.equal(parseAiToolReviewText(text).outcome, "unavailable", text);
 });
 
 test("审核 prompt 含定界符与防注入声明", () => {

@@ -15,8 +15,17 @@ export async function applyAiToolReviewGate(
   executionInput: unknown,
   decision: PermissionDecisionResult,
   traceContext?: ToolExecutorDeps["traceContext"],
-): Promise<{ decision: PermissionDecisionResult; reviewSignature: string; aiRejected: boolean }> {
-  const reviewSignature = computeToolReviewSignature(toolCall.name, executionInput);
+): Promise<{
+  decision: PermissionDecisionResult;
+  reviewSignature: string;
+  aiRejected: boolean;
+  reviewedAt: number;
+}> {
+  const reviewSignature = computeToolReviewSignature(
+    toolCall.name,
+    executionInput,
+    deps.getWorkingDirectory(),
+  );
   const reviewStartedAt = Date.now();
   const reviewOutcome = deps.executeAiToolReview
     ? await deps.executeAiToolReview(
@@ -33,6 +42,7 @@ export async function applyAiToolReviewGate(
     deps.aiReviewStatsPort.recordAiReviewEvent({
       outcome: reviewOutcome.outcome === "approve" ? "approved" : "rejected",
       durationMs: Date.now() - reviewStartedAt,
+      reviewedAt: reviewStartedAt,
     });
   }
   const aiRejected = reviewOutcome.outcome === "reject";
@@ -48,11 +58,13 @@ export async function applyAiToolReviewGate(
       },
       reviewSignature,
       aiRejected,
+      reviewedAt: reviewStartedAt,
     };
   }
   return {
     decision: { ...decision, reason: formatAiReviewNotice(reviewOutcome) },
     reviewSignature,
     aiRejected,
+    reviewedAt: reviewStartedAt,
   };
 }

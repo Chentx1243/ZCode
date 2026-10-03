@@ -719,7 +719,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       fileSystemPort,
       logger,
     });
-    // 自动审核统计：全局一份 recorder（readSnapshot 供 v4 RPC 读取）。
+    // recorder 只提交增量；全局统计事实与跨会话并发控制由存储层独占。
     const aiReviewStatsRecorder = createAiReviewStatsRecorder(localSettingStore, { logger });
     // 模型目录：工具层把用户说的模型名解析成 workflow run 的子代理选型（model-catalog-port.ts）。
     const modelCatalogPort = createModelCatalogPort({

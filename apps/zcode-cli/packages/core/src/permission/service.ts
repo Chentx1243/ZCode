@@ -561,7 +561,11 @@ export class PermissionService {
     context: PermissionContext,
     capability: ResolvedPermissionCapability,
   ): PermissionDecisionResult {
-    const signature = computeToolReviewSignature(context.toolName, context.input);
+    const signature = computeToolReviewSignature(
+      context.toolName,
+      context.input,
+      context.workingDirectory,
+    );
     if (this.aiReviewApprovals.has(signature)) {
       return this.allow(
         context,

@@ -1,6 +1,7 @@
 import * as permissionFullAccessRepository from "./repositories/permission-full-access.js";
 import { DatabaseSync } from "node:sqlite";
 import type {
+  AiReviewStatEvent,
   CollaborationMode,
   ClaimLegacySessionWorkspaceInput,
   RepairLegacyRemoteSessionWorkspaceInput,
@@ -897,8 +898,8 @@ export class SqliteSessionStore
     return localSettingsRepository.getAiReviewStats(this.db);
   }
 
-  saveAiReviewStats(data: AiReviewStatsData): AiReviewStatsData {
-    return localSettingsRepository.saveAiReviewStats(this.db, data);
+  recordAiReviewStat(event: AiReviewStatEvent & { reviewedAt: number }): void {
+    localSettingsRepository.recordAiReviewStat(this.db, event);
   }
 
   saveProjectPermissionMode(input: {

@@ -1,4 +1,4 @@
-/* oxlint-disable eslint/max-lines -- review 模式送审闸门接入后（编排已抽离至 ai-review-gate.ts）仍超基线上限 10 行；再拆会把一次权限裁决的完整时序切碎。 */
+/* oxlint-disable eslint/max-lines -- review 模式送审闸门接入后（编排已抽离至 ai-review-gate.ts）仍超过行数基线；再拆会把一次权限裁决的完整时序切碎。 */
 import {
   CoreErrorType,
   createCoreError,
@@ -13,6 +13,7 @@ import {
 } from "@zcode/contracts";
 import type { HookRunResult } from "../../hooks/index.js";
 import type { PermissionContext } from "../../permission/service.js";
+import { computeToolReviewSignature } from "../../permission/ai-review.js";
 import { applyAiToolReviewGate } from "./ai-review-gate.js";
 import type { ExecutableToolCall, ToolEntry, ToolExecutionResult } from "../types.js";
 import { normalizeToolExecutionInput } from "../input-normalization.js";
@@ -105,6 +106,7 @@ export async function resolveToolPermission(
   // （编排见 ai-review-gate.ts）；approve 改写为放行，否则维持 ask 携意见走确认链路。
   let pendingAiReviewSignature: string | undefined;
   let pendingAiReviewRejected = false;
+  let reviewedAt: number | undefined;
   if (permissionDecision.pendingAiReview && permissionDecision.decision === "ask") {
     const gated = await applyAiToolReviewGate(
       deps,
@@ -116,6 +118,7 @@ export async function resolveToolPermission(
     permissionDecision = gated.decision;
     pendingAiReviewSignature = gated.reviewSignature;
     pendingAiReviewRejected = gated.aiRejected;
+    reviewedAt = gated.reviewedAt;
   }
 
   deps.logger?.debug("Tool permission evaluated", {
@@ -335,7 +338,7 @@ export async function resolveToolPermission(
     // 统计回填：AI 真实拒绝且用户也拒绝 = 有效拦截。deny 在此提前返回，
     // 不能依赖下方的放行路径统计（否则用户拒绝永远记不上）。
     if (pendingAiReviewSignature && pendingAiReviewRejected) {
-      deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedDenied" });
+      deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedDenied", reviewedAt });
     }
     return {
       allowed: false,
@@ -427,41 +430,32 @@ export async function resolveToolPermission(
     });
   }
 
-  // review 模式：用户在确认窗放行过的操作签名进会话记忆，同签名不再送审。
-  // 统计回填：AI 真实拒绝后的用户放行计入 rejectedAllowed（用户拒绝在上方 deny
-  // 分支回填，那里提前返回）。
-  if (pendingAiReviewSignature) {
-    if (resolvedPermission.decision === "allow" || resolvedPermission.decision === "modify") {
-      deps.permissionService.rememberAiReviewApproval(pendingAiReviewSignature);
-      if (pendingAiReviewRejected) {
-        deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedAllowed" });
-      }
-    }
-  }
-
-  telemetry?.setPermissionDecision("granted");
-  if (resolvedPermission.decision !== "modify") {
-    return {
-      allowed: true,
-      executionInput: useNormalizedHookModifiedInput ? normalizedHookModifiedInput : executionInput,
-      permissionWaitMs,
-    };
-  }
-
-  const modifiedInput = useNormalizedHookModifiedInput
+  const approvedInput = useNormalizedHookModifiedInput
     ? normalizedHookModifiedInput
-    : normalizeToolExecutionInput({
-        entry,
-        input: resolvedPermission.modifiedInput ?? executionInput,
-        logger: deps.logger,
-        source: "permission",
-      });
-  const modifiedInputValidation = validateInput(modifiedInput, entry);
+    : resolvedPermission.decision === "modify"
+      ? normalizeToolExecutionInput({
+          entry,
+          input: resolvedPermission.modifiedInput ?? executionInput,
+          logger: deps.logger,
+          source: "permission",
+        })
+      : executionInput;
+  const modifiedInputValidation = validateInput(approvedInput, entry);
   if (modifiedInputValidation) {
     return {
       allowed: false,
       result: createErrorResult(toolCall, modifiedInputValidation),
     };
   }
-  return { allowed: true, executionInput: modifiedInput, permissionWaitMs };
+  // 旧代码在校验前记住被拒绝的原始输入；只能记忆用户最终允许且有效的操作。
+  if (pendingAiReviewSignature) {
+    deps.permissionService.rememberAiReviewApproval(
+      computeToolReviewSignature(toolCall.name, approvedInput, permissionContext.workingDirectory),
+    );
+    if (pendingAiReviewRejected) {
+      deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedAllowed", reviewedAt });
+    }
+  }
+  telemetry?.setPermissionDecision("granted");
+  return { allowed: true, executionInput: approvedInput, permissionWaitMs };
 }
