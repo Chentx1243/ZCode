@@ -15,10 +15,13 @@ import { createRuntimeModel } from "./runtime-model.js";
 import { auxiliaryModelOptions } from "../../model/auxiliary-model-options.js";
 import {
   buildAiToolReviewMessages,
+  detectAiReviewLanguage,
   parseAiToolReviewText,
   type AiToolReviewOutcome,
   type AiToolReviewRequest,
 } from "../../permission/ai-review.js";
+import { modelMessageContentToText } from "@zcode/contracts";
+import type { MessageHistory } from "../../agent/message-history.js";
 
 /** 官方经验：这类一次性调用在慢链路下 15s 容易超时（标题生成已统一 60s）；
  * 审核阻塞的是权限链路，取 30s 折中。 */
@@ -50,6 +53,12 @@ export async function runAiToolReviewViaRuntime(
   } catch {
     taskContext = undefined;
   }
+  // 无目标的普通会话也要锚定用户语言：待审命令/路径几乎全是英文，若让模型
+  // 自行退化判定，中文用户会拿到英文拒绝理由。目标未检出时回退最近真实用户消息。
+  const userLanguage = detectAiReviewLanguage(
+    taskContext,
+    readLatestRealUserMessageText(runtime.messageHistory),
+  );
 
   const baseModel = createRuntimeModel(runtime, { selection });
   const auxiliary = auxiliaryModelOptions(baseModel);
@@ -78,7 +87,7 @@ export async function runAiToolReviewViaRuntime(
       () =>
         model.generateText({
           abortSignal,
-          messages: buildAiToolReviewMessages({ ...request, taskContext }),
+          messages: buildAiToolReviewMessages({ ...request, taskContext, userLanguage }),
           tools: [],
         }),
     );
@@ -105,4 +114,24 @@ export async function runAiToolReviewViaRuntime(
       reasons: ["AI review model request failed"],
     };
   }
+}
+
+/** 语言锚定只需要判断文字种类，无需整条消息。 */
+const LANGUAGE_DETECTION_TEXT_LIMIT = 400;
+
+/**
+ * 倒序取最近一条真实用户消息的文本。只认 `real_user` 来源——system reminder
+ * 注入的合成 user 消息（todo、goal state 等）是英文模板，不能代表用户语言。
+ * 借用 entries 是同步只读操作，在返回前完成遍历，不跨异步边界持有引用。
+ */
+export function readLatestRealUserMessageText(history: MessageHistory): string | undefined {
+  const entries = history.borrowReadOnlyRuntimeEntries();
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const entry = entries[index];
+    if (entry.kind === "attachment") continue;
+    if (entry.message.role !== "user" || entry.metadata?.source !== "real_user") continue;
+    const text = modelMessageContentToText(entry.message.content).trim();
+    return text.length > 0 ? text.slice(0, LANGUAGE_DETECTION_TEXT_LIMIT) : undefined;
+  }
+  return undefined;
 }

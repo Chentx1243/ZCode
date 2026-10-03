@@ -13,9 +13,10 @@
 - 模式枚举同步扩展七处：`zcodeSessionModeSchema`（legacy 协议）、`ZCodeTaskMode` 与其 zod schema、`submissionModeSchema`（v4）、`executionPermissionModeSchema` 与 `resolveExecutionState`、`CliPermissionMode` 与 `--mode` 校验、bootstrap `SWITCHABLE_MODES`、services `toZCodeMode`/`fromZCodeMode` 与 `sessionModeOptions` canonical 集合。
 - 裁决分支：permission/service 新增 `checkReviewMode`，与 `checkEditMode` 并列。只读放行 rule `mode.review.readOnly`；审核通过放行 rule `mode.review.aiApproved`；审核不通过或不可用转为现有确认请求，rule `mode.review.aiRejected`，确认请求 payload 扩展可选审核意见字段。
 - AI 审核器位于 CLI core 权限域：输入为任务上下文（任务标题/初始指令与最近对话摘要）和待执行操作的结构化描述（工具名、命令文本、目标路径、编辑摘要，均截断）；待审内容置于明确定界符内并声明为数据而非指令，防提示注入。输出严格 JSON：`decision`（approve/reject）、`reasons`、`riskType`（harmful/unrelated，可为空）；解析失败按不确定处理。
+- 审核理由语言锚定用户语言，不由待审命令/路径内容决定：runtime 送审时优先检测会话目标的语言，无目标时检测最近一条真实用户消息（`real_user` 来源）的语言，检测到中文（含至少 4 个 CJK 字符）时以 `<user_language>` 段显式指定模型用简体中文写理由；两处都未检出时不注入该段，模型按任务上下文/待审内容语言退化。
 - 模型选择使用当前会话模型，统一套用 `auxiliaryModelOptions`（最低推理档位与输出上限），暂不提供独立 `autoReview.modelSelection` 配置。单次模型审核超时上限 30 秒；超时、网络失败、解析失败均视为不确定，转人工确认，不静默放行（fail-closed）。
 - 持久化复用项目权限模式偏好（`saveProjectPermissionMode` 路径），仅扩展枚举值，不新增存储字段；会话重启恢复该模式。
-- UI：composer 模式下拉新增一档与图标、中英文 label 与 description；审核拒绝/不可用意见复用现有 reason 展示，暂不提供独立结构化意见区或「AI 审核中」状态。
+- UI：composer 模式下拉新增一档与图标、中英文 label 与 description；审核拒绝/不可用意见复用现有 reason 展示，暂不提供独立结构化意见区或「AI 审核中」状态。reason 通知句式由 CLI 侧按理由文本自身的语言双语化（中文理由配中文句式、英文理由配英文句式），UI 原样展示，不做二次翻译；approve 的放行 reason 仅用于协议诊断，保持英文。
 
 ## 时序
 
@@ -114,3 +115,11 @@ E2E 实测（隔离实例，桌面测试目录）：
 - 后续使用真实 GLM-5.3 完成桌面 Write/Edit 自动通过、AskUserQuestion 等待与答案回传、AI 拒绝转人工、人工拒绝及统计刷新的实测。人工允许、审核异常/超时的实机降级和手机恢复链路仍未完整验收，不能以单测通过替代。
 - 已回答问题显示“未提供回答”是当前 UI 对文本答案的兼容缺陷；相关代码与本地 main 相同，官方安装版 3.14.4 已包含文本解析，公开源码 3.14.3 尚未同步。本次自动审核合并不包含该展示修复。
 - 证据与发布判断见 `artifacts/auto-review-audit-20261003/fix-report.md` 和 `artifacts/auto-review-live-20261003/report.md`；已验证主流程不代表生产发布全部场景已验收。
+
+### 拒绝理由语言修复记录（2026-10-03）
+
+问题：中文用户在无会话目标的普通会话里收到英文拒绝理由。根因两层：送审 prompt 的语言规则依赖会话目标，普通会话无目标时退化为待审命令/路径的主导语言（几乎必然英文）；且拒绝通知句式在 CLI 侧硬编码英文，中文理由也会被包进英文句子。
+
+修复：runtime 送审时构造语言锚点（会话目标优先、最近一条 `real_user` 用户消息兜底，含至少 4 个 CJK 字符判为中文），以 `<user_language>` 段注入 prompt 并更新 system 语言优先级规则；`formatAiReviewNotice` 按理由文本自身语言选句式（中文理由配中文句式、英文/固定诊断串保持英文句式），UI 原样展示不二次翻译。approve 放行 reason 仅用于协议诊断，保持英文。
+
+验证：新增 `ai-review-language.test.ts` 10 项（语言检测阈值与顺序、prompt 注入与退化、通知句式双语、真实用户消息过滤与截断），连同权限审核/流程回归共 36 项通过。根 typecheck、根 lint、架构检查（0 violations）、改动文件定向 lint（0 新增诊断）与 prettier 格式检查通过。core 包 typecheck 存在 1 个与本修复无关的既有错误（`auxiliary-model-options.ts` 的 `Required<ModelOptions>` 缺 `temperature`，角色温度功能遗留，干净 HEAD 复现）；core 全量 lint 29 errors 与官方基线相同。真实模型的中文理由输出与弹窗中文展示待实机验证。

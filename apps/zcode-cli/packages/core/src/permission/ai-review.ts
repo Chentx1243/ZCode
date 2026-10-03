@@ -21,12 +21,53 @@ export interface AiToolReviewRequest {
   input: unknown;
   /** 任务标题/初始指令等可信上下文；缺席时相关性判断退化为纯安全性判断。 */
   taskContext?: string;
+  /**
+   * 用户语言锚点（由会话目标或最近真实用户消息检测而来）。缺席时模型按
+   * taskContext/待审内容语言退化——命令与路径几乎全是英文，中文用户会得到
+   * 英文理由，故 runtime 侧应尽量提供。
+   */
+  userLanguage?: AiReviewLanguage;
 }
 
 export type AiToolReviewOutcome =
   | { outcome: "approve" }
   | { outcome: "reject"; reasons: string[]; riskType: "harmful" | "unrelated" | null }
   | { outcome: "unavailable"; reasons: string[] };
+
+/** 审核文案支持的输出语言；枚举即 prompt 内的语言名映射，扩展时同步补两处。 */
+export type AiReviewLanguage = "zh-CN";
+
+const AI_REVIEW_LANGUAGE_NAMES: Record<AiReviewLanguage, string> = {
+  "zh-CN": "Simplified Chinese",
+};
+
+/**
+ * 用户语言锚定检测：按顺序取第一个含至少 4 个 CJK 字符的文本判为简体中文。
+ * 用存在性而非占比判定——输入是用户自己的话（会话目标/最近消息），出现成段
+ * 中文字符即代表用户以中文表达；纯英文或粘贴英文代码不误判。检测不出时返回
+ * undefined，走英文退化路径。
+ */
+export function detectAiReviewLanguage(
+  ...texts: Array<string | undefined>
+): AiReviewLanguage | undefined {
+  for (const text of texts) {
+    if (text && countCjkChars(text) >= MIN_CJK_CHARS_FOR_ZH) {
+      return "zh-CN";
+    }
+  }
+  return undefined;
+}
+
+const MIN_CJK_CHARS_FOR_ZH = 4;
+
+function countCjkChars(text: string): number {
+  let count = 0;
+  for (const char of text) {
+    const code = char.codePointAt(0)!;
+    if (code >= 0x4e00 && code <= 0x9fff) count++;
+  }
+  return count;
+}
 
 /**
  * 旧签名只取路径/命令，导致同文件的不同内容免审。完整输入与 cwd 一起哈希，
@@ -97,16 +138,20 @@ Approve only if BOTH hold:
 1. Safe: does not destroy data or systems, does not exfiltrate secrets or credentials, does not reach outside the project workspace without need, and is reversible or low-impact.
 2. Relevant: plausibly serves the task context. When no task context is provided, judge safety only and treat relevance as satisfied.
 
-Otherwise reject. Write reasons in the primary human language of the task context
-(the user's own words); without task context, follow the dominant human language
-inside <tool_call>; use English only when neither is present.
+Otherwise reject. Write reasons in the language named inside <user_language> when
+present; otherwise in the primary human language of the task context (the user's
+own words); without task context, follow the dominant human language inside
+<tool_call>; use English only when none of these is present.
 
 Return exactly one valid JSON object with no surrounding text:
 {"decision":"approve"|"reject","riskType":"harmful"|"unrelated"|null,"reasons":["..."]}
 All three fields are required. Use no additional fields. reasons must contain at least one non-empty string.`;
 
   const taskContext = request.taskContext?.trim();
-  const user = `${taskContext ? `<task>\n${truncate(taskContext, MAX_TASK_CONTEXT_CHARS)}\n</task>\n\n` : ""}<tool_call>
+  const languageName = request.userLanguage
+    ? AI_REVIEW_LANGUAGE_NAMES[request.userLanguage]
+    : undefined;
+  const user = `${languageName ? `<user_language>${languageName}</user_language>\n\n` : ""}${taskContext ? `<task>\n${truncate(taskContext, MAX_TASK_CONTEXT_CHARS)}\n</task>\n\n` : ""}<tool_call>
 tool: ${request.toolName}
 ${describeToolInput(request.input)}
 </tool_call>`;
@@ -147,14 +192,26 @@ export function parseAiToolReviewText(text: string): AiToolReviewOutcome {
   return decision === "approve" ? { outcome: "approve" } : { outcome: "reject", reasons, riskType };
 }
 
-/** 审核意见汇总为给用户看的一段文本，挂在确认请求的 reason 上。 */
+/**
+ * 审核意见汇总为给用户看的一段文本，挂在确认请求的 reason 上。句式语言跟随
+ * 理由文本自身（中文理由配中文句式），UI 原样展示不做翻译；unavailable 的
+ * 固定英文诊断串保持英文，便于排障检索。approve 的放行 reason 仅用于协议诊断，
+ * 不经过本函数。
+ */
 export function formatAiReviewNotice(
   outcome: Exclude<AiToolReviewOutcome, { outcome: "approve" }>,
 ): string {
-  if (outcome.outcome === "unavailable") {
-    return `AI review unavailable: ${outcome.reasons.join("; ")}. Please verify this action yourself.`;
+  const reasons = outcome.reasons.join("; ");
+  if (detectAiReviewLanguage(reasons)) {
+    if (outcome.outcome === "unavailable") {
+      return `AI 审核暂不可用：${reasons}。请自行确认该操作是否可以执行。`;
+    }
+    const risk = outcome.riskType === "harmful" ? "可能有危害" : "与当前任务无关";
+    return `AI 审核拒绝了该操作（${risk}）：${reasons}`;
   }
-  const risk =
-    outcome.riskType === "harmful" ? "potentially harmful" : "unrelated to the current task";
-  return `AI review rejected this action (${risk}): ${outcome.reasons.join("; ")}`;
+  if (outcome.outcome === "unavailable") {
+    return `AI review unavailable: ${reasons}. Please verify this action yourself.`;
+  }
+  const risk = outcome.riskType === "harmful" ? "potentially harmful" : "unrelated to the current task";
+  return `AI review rejected this action (${risk}): ${reasons}`;
 }
