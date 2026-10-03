@@ -332,6 +332,11 @@ export async function resolveToolPermission(
 
   if (resolvedPermission.decision === "deny") {
     telemetry?.setPermissionDecision("denied");
+    // 统计回填：AI 真实拒绝且用户也拒绝 = 有效拦截。deny 在此提前返回，
+    // 不能依赖下方的放行路径统计（否则用户拒绝永远记不上）。
+    if (pendingAiReviewSignature && pendingAiReviewRejected) {
+      deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedDenied" });
+    }
     return {
       allowed: false,
       result: createPermissionErrorResult(
@@ -423,15 +428,14 @@ export async function resolveToolPermission(
   }
 
   // review 模式：用户在确认窗放行过的操作签名进会话记忆，同签名不再送审。
-  // 统计回填：只有 AI 真实拒绝后的用户决定才计入 rejectedAllowed/rejectedDenied。
+  // 统计回填：AI 真实拒绝后的用户放行计入 rejectedAllowed（用户拒绝在上方 deny
+  // 分支回填，那里提前返回）。
   if (pendingAiReviewSignature) {
     if (resolvedPermission.decision === "allow" || resolvedPermission.decision === "modify") {
       deps.permissionService.rememberAiReviewApproval(pendingAiReviewSignature);
       if (pendingAiReviewRejected) {
         deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedAllowed" });
       }
-    } else if (resolvedPermission.decision === "deny" && pendingAiReviewRejected) {
-      deps.aiReviewStatsPort?.recordAiReviewEvent({ outcome: "rejectedDenied" });
     }
   }
 
