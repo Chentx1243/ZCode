@@ -235,6 +235,9 @@ function normalizeCronAutomationMode(
       return mode;
     case "auto":
     case "autoEdit":
+    // review 依赖"不通过转人工确认"，无人值守场景无人应答会让任务挂死，
+    // 与遗留 autoEdit 同路径降级为 build。
+    case "review":
       return "build";
     default: {
       const exhaustiveMode: never = mode;

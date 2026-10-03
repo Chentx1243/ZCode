@@ -12,6 +12,7 @@ export * from "./agent-execution.js";
 
 export const ModelApiOperation = {
   AgentStep: "agent_step",
+  AiToolReview: "ai_tool_review",
   ContextCompaction: "context_compaction",
   GoalTitle: "goal_title_generation",
   GoalVerification: "goal_completion_verification",

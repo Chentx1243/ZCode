@@ -12,6 +12,7 @@ const MODE_DESCRIPTIONS: Record<TuiSwitchableMode, string> = {
   edit: "Edit selected files or relevant workspace files automatically.",
   plan: "Inspect the code and present a plan before editing.",
   yolo: "Edit and run commands with fewer confirmations.",
+  review: "Ask approval only for detected risky actions.",
 };
 
 const TUI_MODE_OPTIONS: readonly TuiModeOption[] = TUI_SWITCHABLE_MODES.map((mode) => ({

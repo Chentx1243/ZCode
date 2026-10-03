@@ -64,6 +64,7 @@ import type {
   SessionMailboxPort,
   SessionProjection,
   SessionStorePort,
+  AiReviewStatsPort,
   ContextSourcePort,
   DynamicWorkflowRunPort,
   DynamicWorkflowSnippetPort,
@@ -316,6 +317,8 @@ export interface AgentRuntimeDeps {
   eventStore: SessionEventStorePort;
   sessionStore?: SessionStorePort;
   sessionMailboxPort?: SessionMailboxPort;
+  /** review 模式送审统计埋点；缺席则不记录（统计看板无数据）。 */
+  aiReviewStatsPort?: AiReviewStatsPort;
   modelFactory: RuntimeModelFactory;
   /** 可选宿主能力：解析未来执行的显式意图；不用于修改已冻结 Model。 */
   resolveEffectiveModelSelection?: (selection: ModelSelection) => EffectiveModelSelectionResult;

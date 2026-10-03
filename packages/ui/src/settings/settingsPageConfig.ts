@@ -8,6 +8,7 @@ import {
   Palette,
   Sun,
   BarChart3,
+  ShieldCheck,
   Terminal,
   AlarmClock,
   Anchor,
@@ -154,6 +155,13 @@ const BASE_SETTINGS_SECTIONS: SettingsSectionDefinition[] = [
     id: "usage",
     icon: BarChart3,
     titleId: "settings.usageTitle",
+    groupId: "dataAndStats",
+  },
+  // 自动批准统计：review 模式送审结果的全局聚合看板，紧跟使用统计。
+  {
+    id: "aiReviewStats",
+    icon: ShieldCheck,
+    titleId: "settings.aiReviewStats.title",
     groupId: "dataAndStats",
   },
 ];

@@ -1,5 +1,11 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { CollaborationMode, PermissionRuleset, ProjectId } from "@zcode/contracts";
+import type {
+  AiReviewStatEvent,
+  CollaborationMode,
+  PermissionRuleset,
+  ProjectId,
+} from "@zcode/contracts";
+import { aiReviewStatsDataSchema, type AiReviewStatsData } from "@zcode/shared";
 import { isCollaborationMode } from "../codecs.js";
 import { decodeJson } from "../json.js";
 import type { LocalSettingRow, PermissionRow } from "../rows.js";
@@ -83,6 +89,63 @@ export function saveProjectPermissionMode(
     value: JSON.stringify({ mode: input.mode }),
   });
   return input.mode;
+}
+
+/** 自动审核统计桶：全局 scope，所有会话共用一份。 */
+export function getAiReviewStats(db: DatabaseSync): AiReviewStatsData | undefined {
+  const setting = readLocalSetting(db, {
+    key: "stats",
+    namespace: "aiReview",
+    scope: "global",
+    scopeID: "",
+  });
+  if (!setting) return undefined;
+  const parsed = aiReviewStatsDataSchema.safeParse(decodeJson<unknown>(setting.value));
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function recordAiReviewStat(
+  db: DatabaseSync,
+  event: AiReviewStatEvent & { reviewedAt: number },
+): void {
+  const now = new Date(event.reviewedAt);
+  if (!Number.isFinite(now.getTime())) throw new Error("Invalid AI review timestamp");
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  // 各会话/Host 有独立连接：必须先取得数据库写锁再读取，不能合并旧内存快照。
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const data = getAiReviewStats(db) ?? { version: 1, days: {} };
+    const day = data.days[date] ?? {
+      date,
+      reviewed: 0,
+      approved: 0,
+      rejected: 0,
+      rejectedAllowed: 0,
+      rejectedDenied: 0,
+      totalReviewMs: 0,
+    };
+    if (event.outcome === "approved" || event.outcome === "rejected") {
+      day.reviewed += 1;
+      day[event.outcome] += 1;
+      day.totalReviewMs += Math.max(0, event.durationMs ?? 0);
+    } else {
+      day[event.outcome] += 1;
+    }
+    data.days[date] = day;
+    writeLocalSetting(db, {
+      key: "stats",
+      namespace: "aiReview",
+      scope: "global",
+      scopeID: "",
+      schemaVersion: 1,
+      time: Date.now(),
+      value: JSON.stringify(data),
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 function readLocalSetting(

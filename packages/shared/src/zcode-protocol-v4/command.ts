@@ -215,7 +215,7 @@ export const commandPayloadSchemas = {
   // additive（冻结面按黄金测试背书演进）：agent 协作模式切换。
   // 值域 = core CollaborationMode 的可切换子集（auto 非用户可切，不进 UI 命令面）。
   switchCollaborationMode: z.object({
-    mode: z.enum(["build", "edit", "plan", "yolo"]),
+    mode: z.enum(["build", "edit", "plan", "yolo", "review"]),
   }),
   switchRoleBinding: z.object({ roleBinding: roleBindingSchema }),
   setFollowupMode: z.object({ mode: z.enum(["queue", "guide"]) }),

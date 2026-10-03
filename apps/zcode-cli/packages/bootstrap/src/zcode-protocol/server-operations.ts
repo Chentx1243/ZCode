@@ -1,4 +1,6 @@
 /* eslint-disable max-lines -- ZCode Protocol 的 session/workspace 方法共享同一个 server context 与 snapshot helpers，迁移期先集中维护。 */
+import { z } from "zod";
+
 import { observeSessionDebug } from "./session-debug.js";
 import {
   TASK_LIST_SESSION_TYPES,
@@ -39,6 +41,7 @@ import {
   type TurnId,
   type UsageStorePort,
   type WorkspaceId,
+  type LocalSettingStorePort,
 } from "@zcode/contracts";
 import {
   DEFAULT_ZCODE_MODEL_CONTEXT_BUDGET_STRATEGY,
@@ -82,6 +85,7 @@ import {
   type ZCodeSessionResumeParams,
   type ZCodeSessionPersistence,
   type ZCodeStateUpdatedNotification,
+  buildAiReviewStatsSnapshot,
 } from "@zcode/shared";
 import {
   buildSessionSnapshot,
@@ -1764,6 +1768,27 @@ export async function listSessionSubagents(
 }
 
 const APP_USAGE_RANGE_DAYS: Record<string, number> = { "7d": 7, "30d": 30 };
+
+/**
+ * 自动审核统计（additive v4 query，模式同 getUsageStats）：事实源在全局 local_setting，
+ * 经 sessionStore 收窄为 LocalSettingStorePort 读取；无 store / 旧 store 未实现时返回空快照。
+ */
+export async function getAiReviewStats(
+  context: ZCodeProtocolAgentServerContext,
+  rawParams: unknown,
+) {
+  const params = parseParams(
+    z.object({ timeZone: z.string().optional() }).strict(),
+    rawParams ?? {},
+  );
+  const localSettings = context.deps.sessionStore as Partial<LocalSettingStorePort> | undefined;
+  const data = (await localSettings?.getAiReviewStats?.()) ?? undefined;
+  return buildAiReviewStatsSnapshot(data, {
+    generatedAt: Date.now(),
+    timeZone:
+      params.timeZone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
+  });
+}
 
 export async function getUsageStats(context: ZCodeProtocolAgentServerContext, rawParams: unknown) {
   const params = parseParams(zcodeUsageStatsParamsSchema, rawParams ?? {});

@@ -1,6 +1,7 @@
 import * as permissionFullAccessRepository from "./repositories/permission-full-access.js";
 import { DatabaseSync } from "node:sqlite";
 import type {
+  AiReviewStatEvent,
   CollaborationMode,
   ClaimLegacySessionWorkspaceInput,
   RepairLegacyRemoteSessionWorkspaceInput,
@@ -59,6 +60,7 @@ import type {
   UpdateScriptWorkflowRunInput,
   UsageStorePort,
 } from "@zcode/contracts";
+import type { AiReviewStatsData } from "@zcode/shared";
 // 端口留在领域包 @zcode/dynamic-workflow，这里只做类型引用：adapters 运行时不依赖它。
 import type { JournalStorePort } from "@zcode/dynamic-workflow";
 import {
@@ -909,6 +911,14 @@ export class SqliteSessionStore
 
   getProjectPermissionMode(projectID: ProjectId): CollaborationMode | null {
     return localSettingsRepository.getProjectPermissionMode(this.db, projectID);
+  }
+
+  getAiReviewStats(): AiReviewStatsData | undefined {
+    return localSettingsRepository.getAiReviewStats(this.db);
+  }
+
+  recordAiReviewStat(event: AiReviewStatEvent & { reviewedAt: number }): void {
+    localSettingsRepository.recordAiReviewStat(this.db, event);
   }
 
   saveProjectPermissionMode(input: {

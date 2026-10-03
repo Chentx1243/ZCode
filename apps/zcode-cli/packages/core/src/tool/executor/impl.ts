@@ -41,6 +41,8 @@ export class ToolExecutorImpl implements ToolExecutor {
       imageProcessorPort: options.imageProcessorPort,
       pdfDocumentPort: options.pdfDocumentPort,
       model: options.model,
+      executeAiToolReview: options.executeAiToolReview,
+      aiReviewStatsPort: options.aiReviewStatsPort,
       embeddedSearchBackend: options.embeddedSearchBackend,
       nativeSearchEnhancementsEnabled: options.nativeSearchEnhancementsEnabled,
       skillPort: options.skillPort,

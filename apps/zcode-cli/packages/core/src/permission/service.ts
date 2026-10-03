@@ -17,6 +17,7 @@ import {
 } from "@zcode/contracts";
 import { OFFICIAL_CUA_PERMISSION_RULE_TOOL_NAME } from "@zcode/shared";
 import { resolvePlanModeTransitionPermission } from "./plan-mode-policy.js";
+import { computeToolReviewSignature } from "./ai-review.js";
 import { webFetchRuleSubjects, wildcardToRegExp } from "./rule-matching.js";
 import { isPreapprovedWorkflowDraftWrite } from "./workflow-draft-path.js";
 import { applyPermissionUpdates } from "../tool/executor/permission-rules.js";
@@ -74,6 +75,12 @@ export interface PermissionDecisionResult {
    * allow 覆盖）靠这个结构化标记识别"不可抹掉的确认"，而不是去匹配 ruleId 字符串。
    */
   alwaysAsk?: boolean;
+  /**
+   * review 模式对非只读操作的挂起裁决：同步权限判定到此为止，executor 侧
+   * 先跑 AI 审核再决定放行还是转人工确认。审核通过会改写为 allow，不通过
+   * 维持 ask 并携带审核意见走现有确认链路。
+   */
+  pendingAiReview?: boolean;
 }
 
 // -----------------------------------------------
@@ -88,10 +95,21 @@ export class PermissionService {
    */
   private sessionRules: PermissionRuleset = { version: 1 };
 
+  /**
+   * review 模式的会话内审核记忆：用户在确认窗放行过一次的操作签名。
+   * 与 sessionRules 分开存放，避免改变普通模式的既有语义。
+   */
+  private aiReviewApprovals = new Set<string>();
+
   constructor(private config: PermissionConfig = defaultPermissionConfig) {}
 
   grantSessionPermission(updates: PermissionUpdate[]): void {
     this.sessionRules = applyPermissionUpdates(this.sessionRules, updates);
+  }
+
+  /** review 模式：记住用户在确认窗放行的操作签名，本会话内同签名不再送审。 */
+  rememberAiReviewApproval(signature: string): void {
+    this.aiReviewApprovals.add(signature);
   }
 
   checkPermission(
@@ -225,6 +243,10 @@ export class PermissionService {
 
     if (context.mode === "edit") {
       return this.checkEditMode(context, capability);
+    }
+
+    if (context.mode === "review") {
+      return this.checkReviewMode(context, capability);
     }
 
     return this.checkBuildMode(context, capability);
@@ -527,6 +549,48 @@ export class PermissionService {
     }
 
     return this.checkBuildMode(context, capability);
+  }
+
+  /**
+   * review（自动审核）模式：yolo 的放行基线 + 非只读操作先过 AI 审核。
+   * 位于 edit 分支旁，意味着项目规则、预批名单等显式表态的裁决优先于 AI 审核；
+   * 审核只负责规则沉默的操作。免审线是 sideEffectScope === "none"（零副作用），
+   * 比 readOnly 字段更严格：WebFetch 等只读但有外部副作用的操作仍需送审。
+   */
+  private checkReviewMode(
+    context: PermissionContext,
+    capability: ResolvedPermissionCapability,
+  ): PermissionDecisionResult {
+    const signature = computeToolReviewSignature(
+      context.toolName,
+      context.input,
+      context.workingDirectory,
+    );
+    if (this.aiReviewApprovals.has(signature)) {
+      return this.allow(
+        context,
+        capability,
+        "mode.review.sessionApproved",
+        "Review mode: user already approved this exact action in this session",
+      );
+    }
+
+    if (capability.sideEffectScope === "none" && !capability.destructive) {
+      return this.allow(
+        context,
+        capability,
+        "mode.review.readOnly",
+        "Review mode allows side-effect-free tools",
+      );
+    }
+
+    const result = this.ask(
+      context,
+      capability,
+      "mode.review.pendingReview",
+      "Review mode: non-read-only action needs AI review",
+    );
+    return { ...result, pendingAiReview: true };
   }
 
   requiresApproval(context: PermissionContext, toolCapability?: PermissionToolCapability): boolean {

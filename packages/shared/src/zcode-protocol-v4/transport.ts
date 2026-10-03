@@ -4,6 +4,7 @@ import { localTtftFactsSchema } from "../localTtft.js";
 // 阶段为类型占位（后半接通道层时启用），数据形状已按规范定稿。
 import { z } from "zod";
 import { APP_USAGE_RANGES, appUsageSnapshotSchema } from "../usage-stats.js";
+import { aiReviewStatsSnapshotSchema } from "../ai-review-stats.js";
 import { zcodeWorkspaceRefSchema } from "../zcode-protocol-legacy-types.js";
 import {
   PROTOCOL_V4_LIMITS,
@@ -364,6 +365,7 @@ export const V4_METHODS = {
   // usage 事实源在 CLI 的 session 库（model_usage/turn_usage 聚合），host 侧无副本，
   // 故收敛为 v4 query 而非 host 直连；旧词 usage/stats、session/usage 就此消费清零。
   usageStats: "v4/usage/stats",
+  aiReviewStats: "v4/aiReview/stats",
   conversationUsage: "v4/conversation/usage",
   // 附件事务：禁止 full-data RPC。每个 chunk 的 decoded bytes <=512KiB，
   // renderer->host Channel 与 host->CLI NDJSON 都必须逐 request 证明 <=1MiB。
@@ -779,6 +781,11 @@ export const v4UsageStatsParamsSchema = z
 export type V4UsageStatsParams = z.infer<typeof v4UsageStatsParamsSchema>;
 export const v4UsageStatsResultSchema = appUsageSnapshotSchema;
 export type V4UsageStatsResult = z.infer<typeof v4UsageStatsResultSchema>;
+
+// 自动审核统计（additive 只读 query，模式同 usageStats：无状态、超时重发安全）。
+// 事实源在 CLI 侧全局 local_setting，host 侧无副本，收敛为 v4 query。
+export const v4AiReviewStatsResultSchema = aiReviewStatsSnapshotSchema;
+export type V4AiReviewStatsResult = z.infer<typeof v4AiReviewStatsResultSchema>;
 
 // 会话级 token 用量（旧 session/usage 的 v4 名字空间落位：会话是协议一等概念，
 // task 是 UI 投影概念不进协议词表）。字段与旧 result 同形，旧 schema 随词一起死。

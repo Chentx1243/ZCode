@@ -212,7 +212,7 @@ export function resolveModeOptionIcon(value: unknown): LucideIcon {
   if (typeof value === "string" && value.toLocaleLowerCase() === "build") return HandIcon;
   if (typeof value === "string" && value.toLocaleLowerCase() === "plan") return NotepadText;
 
-  if (typeof value === "string" && /^(auto|agent|autoEdit|edit)$/i.test(value)) {
+  if (typeof value === "string" && /^(auto|agent|autoEdit|edit|review)$/i.test(value)) {
     return ShieldCheckIcon;
   }
 
