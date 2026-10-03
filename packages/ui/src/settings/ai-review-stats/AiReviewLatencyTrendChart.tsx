@@ -1,4 +1,4 @@
-// 平均额外耗时曲线：每条指令的送审模型调用平均耗时，按 日/周/月 聚合。
+// 平均额外耗时曲线：每条指令的送审平均耗时，近 7 日 / 近 30 天逐日序列。
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import type { AiReviewStatsDay } from "@zcode/shared";
@@ -18,10 +18,10 @@ import {
 } from "@/settings/usage-stats/usageStatsUiParts.js";
 import {
   buildAiReviewLatencySeries,
-  type AiReviewGranularity,
+  type AiReviewLatencyRange,
 } from "./aiReviewStatsViewModel.js";
 
-const AI_REVIEW_GRANULARITIES = ["daily", "weekly", "monthly"] as const;
+const AI_REVIEW_LATENCY_RANGES = ["last7", "last30"] as const;
 const LINE_COLOR = "#22c55e";
 
 const chartConfig = {
@@ -34,12 +34,11 @@ function formatMsAsSeconds(locale: string, ms: number): string {
 
 export function AiReviewLatencyTrendChart({ days }: { days: AiReviewStatsDay[] }) {
   const { intl, locale } = useZCodeIntl();
-  const [granularity, setGranularity] = useState<AiReviewGranularity>("daily");
+  const [range, setRange] = useState<AiReviewLatencyRange>("last7");
 
   const series = useMemo(
-    () =>
-      buildAiReviewLatencySeries(days, granularity, (date) => formatDay(locale, date)),
-    [days, granularity, locale],
+    () => buildAiReviewLatencySeries(days, range, (date) => formatDay(locale, date)),
+    [days, range, locale],
   );
 
   const formatTooltipItem = (value: unknown): string =>
@@ -52,16 +51,16 @@ export function AiReviewLatencyTrendChart({ days }: { days: AiReviewStatsDay[] }
           {intl.formatMessage({ id: "settings.aiReviewStats.latencyTitle" })}
         </h3>
         <Tabs
-          value={granularity}
-          onValueChange={(value) => setGranularity(value as AiReviewGranularity)}
+          value={range}
+          onValueChange={(value) => setRange(value as AiReviewLatencyRange)}
           className="shrink-0"
         >
           <TabsList className={USAGE_STATS_TABS_LIST_CLASS}>
-            {AI_REVIEW_GRANULARITIES.map((option) => (
+            {AI_REVIEW_LATENCY_RANGES.map((option) => (
               <TabsTrigger
                 key={option}
                 value={option}
-                onClick={() => setGranularity(option)}
+                onClick={() => setRange(option)}
                 className={USAGE_STATS_TABS_TRIGGER_CLASS}
               >
                 {intl.formatMessage({ id: `settings.aiReviewStats.range.${option}` })}

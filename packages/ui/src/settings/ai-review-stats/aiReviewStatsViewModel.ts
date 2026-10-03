@@ -6,8 +6,6 @@ const DAY_MS = 86_400_000;
 const DAYS_PER_WEEK = 7;
 const DISPLAY_WEEK_COUNT = 52;
 
-export type AiReviewGranularity = "daily" | "weekly" | "monthly";
-
 /** 热力图粒度与使用统计三档一致：每日/每周/累计。 */
 export type AiReviewHeatmapGranularity = "daily" | "weekly" | "cumulative";
 
@@ -183,38 +181,35 @@ export interface AiReviewLatencySeries {
   points: AiReviewLatencyPoint[];
 }
 
-function bucketKeyForDate(date: string, granularity: AiReviewGranularity): string {
-  if (granularity === "daily") return date;
-  if (granularity === "monthly") return date.slice(0, 7);
-  // ISO 周：以周一为起点。用 UTC 周四所在年避免跨年周错位。
-  const dayIndex = dateKeyToUtcDayIndex(date) ?? 0;
-  const weekday = getUtcWeekday(dayIndex);
-  const mondayIndex = dayIndex - ((weekday + 6) % 7);
-  return utcDayIndexToDateKey(mondayIndex);
+/** 耗时曲线时间窗口：近 7 日 / 近 30 天，序列恒为日粒度。 */
+export type AiReviewLatencyRange = "last7" | "last30";
+
+const LATENCY_RANGE_DAYS: Record<AiReviewLatencyRange, number> = { last7: 7, last30: 30 };
+
+/** 近 N 天（含今天）的本地日期下限 key。 */
+export function latencyCutoffDateKey(range: AiReviewLatencyRange, now = new Date()): string {
+  const cutoff = new Date(now);
+  cutoff.setDate(now.getDate() - (LATENCY_RANGE_DAYS[range] - 1));
+  return `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(
+    cutoff.getDate(),
+  ).padStart(2, "0")}`;
 }
 
-/** 平均额外耗时序列：桶内 totalReviewMs/reviewed，无审查的桶不产生点。 */
+/** 平均额外耗时序列：窗口内逐日桶 totalReviewMs/reviewed，无审查的桶不产生点。 */
 export function buildAiReviewLatencySeries(
   days: AiReviewStatsDay[],
-  granularity: AiReviewGranularity,
+  range: AiReviewLatencyRange,
   formatLabel: (date: string) => string,
 ): AiReviewLatencySeries {
-  const buckets = new Map<string, { reviewed: number; totalReviewMs: number; anchor: string }>();
-  for (const day of days) {
-    const key = bucketKeyForDate(day.date, granularity);
-    const entry = buckets.get(key) ?? { reviewed: 0, totalReviewMs: 0, anchor: day.date };
-    entry.reviewed += day.reviewed;
-    entry.totalReviewMs += day.totalReviewMs;
-    buckets.set(key, entry);
-  }
-  const points = [...buckets.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .filter(([, entry]) => entry.reviewed > 0)
-    .map(([key, entry]) => ({
-      key,
-      label: formatLabel(entry.anchor),
-      tooltipLabel: formatLabel(entry.anchor),
-      avgMs: entry.totalReviewMs / entry.reviewed,
+  const cutoff = latencyCutoffDateKey(range);
+  const points = days
+    .filter((day) => day.date >= cutoff && day.reviewed > 0)
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .map((day) => ({
+      key: day.date,
+      label: formatLabel(day.date),
+      tooltipLabel: formatLabel(day.date),
+      avgMs: day.totalReviewMs / day.reviewed,
     }));
   return { points };
 }
