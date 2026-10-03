@@ -43,6 +43,11 @@ const ZCODE_AGENT_MODE_OPTIONS = [
     name: "Full access",
     description: "Edit and run commands with fewer confirmations.",
   },
+  {
+    id: "review",
+    name: "Auto review",
+    description: "Full access with AI review of non-read-only actions.",
+  },
 ] as const satisfies readonly ZCodeTaskModeInfo[];
 const ZCODE_AGENT_MODE_ID_SET = new Set<string>(ZCODE_AGENT_MODE_OPTIONS.map((mode) => mode.id));
 

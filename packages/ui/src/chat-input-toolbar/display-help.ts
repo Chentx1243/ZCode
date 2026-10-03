@@ -6,6 +6,7 @@ export const ZCODE_MODE_OPTION_LABEL_IDS: Record<ZCodeProvider, Record<string, s
     edit: "mode.label.glm.edit",
     plan: "mode.label.glm.plan",
     yolo: "mode.label.glm.yolo",
+    review: "mode.label.glm.review",
   },
 };
 
@@ -15,5 +16,6 @@ export const ZCODE_MODE_OPTION_DESCRIPTION_IDS: Record<ZCodeProvider, Record<str
     edit: "mode.description.glm.edit",
     plan: "mode.description.glm.plan",
     yolo: "mode.description.glm.yolo",
+    review: "mode.description.glm.review",
   },
 };

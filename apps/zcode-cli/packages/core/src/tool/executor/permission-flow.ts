@@ -1,3 +1,4 @@
+/* oxlint-disable eslint/max-lines -- review 模式送审闸门接入后（编排已抽离至 ai-review-gate.ts）仍超基线上限 10 行；再拆会把一次权限裁决的完整时序切碎。 */
 import {
   CoreErrorType,
   createCoreError,
@@ -12,6 +13,7 @@ import {
 } from "@zcode/contracts";
 import type { HookRunResult } from "../../hooks/index.js";
 import type { PermissionContext } from "../../permission/service.js";
+import { applyAiToolReviewGate } from "./ai-review-gate.js";
 import type { ExecutableToolCall, ToolEntry, ToolExecutionResult } from "../types.js";
 import { normalizeToolExecutionInput } from "../input-normalization.js";
 import { resolveToolApproval } from "./approval-gate.js";
@@ -98,6 +100,15 @@ export async function resolveToolPermission(
     workingDirectory: deps.getWorkingDirectory(),
     workspaceRoot: deps.getWorkspaceRoot(),
   });
+
+  // review 模式送审：同步裁决到此为 pendingAiReview 的 ask，先过 AI 审核
+  // （编排见 ai-review-gate.ts）；approve 改写为放行，否则维持 ask 携意见走确认链路。
+  let pendingAiReviewSignature: string | undefined;
+  if (permissionDecision.pendingAiReview && permissionDecision.decision === "ask") {
+    const gated = await applyAiToolReviewGate(deps, toolCall, executionInput, permissionDecision);
+    permissionDecision = gated.decision;
+    pendingAiReviewSignature = gated.reviewSignature;
+  }
 
   deps.logger?.debug("Tool permission evaluated", {
     ...traceContextToLogContext(traceContext),
@@ -401,6 +412,14 @@ export async function resolveToolPermission(
       toolName: toolCall.name,
       updateCount: resolvedPermission.sessionPermissionUpdates.length,
     });
+  }
+
+  // review 模式：用户在确认窗放行过的操作签名进会话记忆，同签名不再送审。
+  if (
+    pendingAiReviewSignature &&
+    (resolvedPermission.decision === "allow" || resolvedPermission.decision === "modify")
+  ) {
+    deps.permissionService.rememberAiReviewApproval(pendingAiReviewSignature);
   }
 
   telemetry?.setPermissionDecision("granted");

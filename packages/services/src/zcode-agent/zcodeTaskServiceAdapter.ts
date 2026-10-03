@@ -3273,6 +3273,8 @@ function toZCodeMode(mode: ZCodeTaskMode | undefined): ZCodeSessionMode | undefi
       return "edit";
     case "yolo":
       return "yolo";
+    case "review":
+      return "review";
     case "auto":
       return "auto";
     case "build":
