@@ -9,7 +9,11 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { UsageEmptyState, formatCompactNumber, formatPercent } from "@/settings/usage-stats/usageStatsUiParts.js";
+import {
+  UsageEmptyState,
+  formatCompactNumber,
+  formatPercent,
+} from "@/settings/usage-stats/usageStatsUiParts.js";
 
 const AI_REVIEW_PIE_COLORS = {
   approved: "#22c55e",

@@ -2350,7 +2350,8 @@ const enUS: Record<string, string> = {
   "settings.aiReviewStats.summary.approved": "Auto approved",
   "settings.aiReviewStats.summary.rejected": "Auto rejected",
   "settings.aiReviewStats.summary.interceptRate": "Effective interception rate",
-  "settings.aiReviewStats.summary.interceptRateTooltip": "Of the actions AI rejected, the share you also denied in the confirmation dialog. Measures how effective the interceptions are.",
+  "settings.aiReviewStats.summary.interceptRateTooltip":
+    "Of the actions AI rejected, the share you also denied in the confirmation dialog. Measures how effective the interceptions are.",
   "settings.aiReviewStats.summary.avgExtraTimeTooltip": "Average review time per action.",
   "settings.aiReviewStats.unit.count": "items",
   "settings.aiReviewStats.unit.seconds": "s",

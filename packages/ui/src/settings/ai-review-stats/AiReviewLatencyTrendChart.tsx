@@ -16,10 +16,7 @@ import {
   UsageEmptyState,
   formatDay,
 } from "@/settings/usage-stats/usageStatsUiParts.js";
-import {
-  buildAiReviewLatencySeries,
-  type AiReviewLatencyRange,
-} from "./aiReviewStatsViewModel.js";
+import { buildAiReviewLatencySeries, type AiReviewLatencyRange } from "./aiReviewStatsViewModel.js";
 
 const AI_REVIEW_LATENCY_RANGES = ["last7", "last30"] as const;
 const LINE_COLOR = "#22c55e";
@@ -105,13 +102,7 @@ export function AiReviewLatencyTrendChart({ days }: { days: AiReviewStatsDay[] }
                 />
               }
             />
-            <Line
-              type="monotone"
-              dataKey="avgMs"
-              stroke={LINE_COLOR}
-              strokeWidth={2}
-              dot={false}
-            />
+            <Line type="monotone" dataKey="avgMs" stroke={LINE_COLOR} strokeWidth={2} dot={false} />
           </LineChart>
         </ChartContainer>
       )}

@@ -99,9 +99,7 @@ export function AiReviewStatsSection() {
     {
       label: intl.formatMessage({ id: "settings.aiReviewStats.summary.interceptRate" }),
       value:
-        summary.interceptRate === null
-          ? "--"
-          : `${formatPercent(locale, summary.interceptRate)}`,
+        summary.interceptRate === null ? "--" : `${formatPercent(locale, summary.interceptRate)}`,
       tooltipId: "settings.aiReviewStats.summary.interceptRateTooltip",
     },
     {

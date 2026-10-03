@@ -45,20 +45,29 @@ export function AiReviewHeatmap({ days }: { days: AiReviewStatsDay[] }) {
 
   const texts = {
     cell: (date: string, count: number) =>
-      intl.formatMessage({ id: "settings.aiReviewStats.heatmap.cell" }, {
-        date: formatFullDay(locale, date),
-        count: formatCompactNumber(locale, count),
-      }),
+      intl.formatMessage(
+        { id: "settings.aiReviewStats.heatmap.cell" },
+        {
+          date: formatFullDay(locale, date),
+          count: formatCompactNumber(locale, count),
+        },
+      ),
     week: (date: string, count: number) =>
-      intl.formatMessage({ id: "settings.aiReviewStats.heatmap.week" }, {
-        date: formatFullDay(locale, date),
-        count: formatCompactNumber(locale, count),
-      }),
+      intl.formatMessage(
+        { id: "settings.aiReviewStats.heatmap.week" },
+        {
+          date: formatFullDay(locale, date),
+          count: formatCompactNumber(locale, count),
+        },
+      ),
     cumulative: (date: string, count: number) =>
-      intl.formatMessage({ id: "settings.aiReviewStats.heatmap.cumulative" }, {
-        date: formatFullDay(locale, date),
-        count: formatCompactNumber(locale, count),
-      }),
+      intl.formatMessage(
+        { id: "settings.aiReviewStats.heatmap.cumulative" },
+        {
+          date: formatFullDay(locale, date),
+          count: formatCompactNumber(locale, count),
+        },
+      ),
   };
 
   const grid = buildDenseDayGrid(days);
